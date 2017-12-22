@@ -6,15 +6,15 @@ import materials
 from pymclevel import nbt
 
 _items = {}
-_by_id = {}
 
 
 class ItemInfo (object):
 
-    def __init__(self, name, value, data=0, maxstack=64, ench='', p_effect='',
+    def __init__(self, name, id, data=0, maxstack=64, ench='', p_effect='',
                  customname='', flag='', flagparam='', lore='', file=''):
         self.name = str(name)
-        self.value = int(value)
+        self.id = id
+        self.value = id     # Old name
         self.data = int(data)
         self.maxstack = int(maxstack)
         self.ench = ench
@@ -31,7 +31,7 @@ class ItemInfo (object):
                ' Ench: %s, PEff: %s, Name: %s, Flag: %s, '\
                ' FP: %s, File: %s' % (
                    self.name,
-                   self.value,
+                   self.id,
                    self.data,
                    self.maxstack,
                    self.ench,
@@ -73,21 +73,14 @@ def LoadItems(filename='items.txt'):
                 continue
 
             if line.count(',') == 4:
-                value, name, data, maxstack, flag = line.split(',')
+                name, id, data, maxstack, flag = line.split(',')
             else:
-                value, name, data, maxstack = line.split(',')
+                name, id, data, maxstack = line.split(',')
                 flag = ''
             name = name.lower()
             _items[name] = ItemInfo(
                 name,
-                value,
-                data,
-                maxstack,
-                flag=flag
-            )
-            _by_id[int(value)] = ItemInfo(
-                name,
-                value,
+                id,
                 data,
                 maxstack,
                 flag=flag
@@ -105,14 +98,7 @@ def LoadItems(filename='items.txt'):
         ):
             _items[obj.name] = ItemInfo(
                 obj.name,
-                obj.val,
-                obj.data,
-                obj.stack,
-                ''
-            )
-            _by_id[obj.val] = ItemInfo(
-                obj.name,
-                obj.val,
+                obj.id,
                 obj.data,
                 obj.stack,
                 ''
@@ -159,20 +145,23 @@ def LoadMagicItems(filename='magic_items.txt'):
             customname = name
             name = 'magic_%s' % (name.lower())
             item = item.lower()
-            value = _items[item].value
+            id = _items[item].id
             data = _items[item].data
             flag = _items[item].flag
             flagparam = _items[item].flagparam
+            p_effect = _items[item].p_effect
 
             _items[name] = ItemInfo(
                 name,
-                value,
+                id,
                 data=data,
                 maxstack=1,
                 ench=ench,
                 customname=customname,
                 flag=flag,
-                flagparam=flagparam, lore=lore
+                flagparam=flagparam,
+                p_effect=p_effect,
+                lore=lore
             )
             # print _items[name]
             items += 1
@@ -210,22 +199,42 @@ def LoadPotions(filename='potions.txt'):
                 continue
             if line[0] == "#":
                 continue
-
-            # Fill in optional flag param
-            if line.count(':') == 1:
-                line = line + ':'
-            name, stuff, flag = line.split(':')
-
-            data, p_effect = stuff.split(',', 1)
+            
+            s = line.split(',')
+            name = s.pop(0)
             # Append section sign and r to name to reset style
-            customname = u"\u00A7r".encode('utf8')+name
+            resetprefix = u"\u00A7r".encode('utf8')
+            customname = name
             name = (name.lower())
-            value = _items['water bottle'].value
+            # Look for optional flag
+            flag = ''
+            if s[-1] in ('HIDE_EFFECTS','HIDE_PARTICLES','HIDE_ALL'):
+                flag = s.pop()
+            # Join the rest back in to the effect list
+            p_effect = ','.join(s)
+            
+            # Create the basic potion
+            id = _items['water bottle'].id
+            _items[name] = ItemInfo(name, id, data=0, maxstack=1,
+                                    p_effect=p_effect, flag=flag,
+                                    customname=resetprefix+customname)
+                                    
+            # Create the arrow version of the potion
+            id = _items['tipped arrow'].id
+            _items[name+' arrow'] = ItemInfo(name+' arrow', id, data=0, maxstack=1,
+                                    p_effect=p_effect, flag=flag,
+                                    customname=resetprefix+customname+' Arrow')
 
-            _items[name] = ItemInfo(name, value, data=data, maxstack=1,
-                                    p_effect=p_effect, customname=customname,
-                                    flag=flag)
-            # print _items[name]
+            # Create the splash version of the potion
+            id = _items['splash water bottle'].id
+            _items['splash '+name] = ItemInfo('splash '+name, id, data=0, maxstack=1,
+                                    p_effect=p_effect, flag=flag,
+                                    customname=resetprefix+'Splash '+customname)
+            # Create the lingering version of the potion
+            id = _items['lingering water bottle'].id
+            _items['lingering '+name] = ItemInfo('lingering '+name, id, data=0, maxstack=1,
+                                    p_effect=p_effect, flag=flag,
+                                    customname=resetprefix+'Lingering '+customname)
             items += 1
         except Exception as e:
             print "Error reading line:", e
@@ -272,9 +281,9 @@ def LoadDyedArmour(filename='dye_colors.txt'):
             flagparam = int(colorval, 16)
 
             for arm in arms:
-                value = _items[arm].value
+                id = _items[arm].id
                 name = '%s %s' % (colorname.lower(), _items[arm].name)
-                _items[name] = ItemInfo(name, value, data=0, maxstack=1,
+                _items[name] = ItemInfo(name, id, data=0, maxstack=1,
                                         flag=flag, flagparam=flagparam)
             # print _items[name]
             items += 1
@@ -316,7 +325,7 @@ def LoadNBTFiles(dirname='items'):
             stack = item_nbt['Count'].value
         except:
             stack = 1
-        _items[name] = ItemInfo(name, 0, maxstack=stack, file=full_path)
+        _items[name] = ItemInfo(name, '', maxstack=stack, file=full_path)
         # print _items[name]
         items_count += 1
     print 'Loaded', items_count, 'items from NBT files.'
@@ -327,14 +336,6 @@ def byName(name):
         return _items[name]
     except:
         print 'Unknown item:', name
-        return None
-
-
-def byID(id):
-    try:
-        return _by_id[id]
-    except:
-        print 'Unknown item ID:', id
         return None
 
 LoadItems()

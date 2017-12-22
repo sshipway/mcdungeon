@@ -1,3 +1,35 @@
+v0.15.0 - 
+
+  !! NOTE: This version requires Minecraft 1.9.0 release or higher!
+
+  !! NOTE: Due to changes in 1.9, old projectile trap configs may
+           not work. Check default.cfg for details.
+
+  * 1.9 Support! (various)
+
+  * Added 1.9 items, blocks and enchants. (JiFish)
+  
+  * Added genregions command for Worldguard. (sshipway)
+
+  * Dynmap marker plugin now available. (sshipway)
+
+  * Added Jack O'Lanterns and Farmland to default structures list. (JiFish)
+
+  * Added special shield loot item with dungeon's banner. (JiFish)
+  
+  * Door materials are now chosen per dungeon. (orphu)
+
+  * Throne rooms now use real carpets. (orphu)
+
+  * Updated potions for 1.9, including allowing lingering potions and
+    tipped arrows in loot tables. (JiFish)
+    
+  * Moved example configs to example_configs folder. (JiFish)
+
+  * Corrected Depth Strider enchantment data. (JiFish)
+  
+  * Items are now created with string IDs. (JiFish)
+
 v0.14.2 - 04/15/2015
 
   !! NOTE: This version requires Minecraft 1.8.0 release or higher!

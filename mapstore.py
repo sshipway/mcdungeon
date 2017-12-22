@@ -23,6 +23,7 @@ from numpy import uint8, zeros
 from pymclevel import nbt
 from utils import Vec
 import materials
+import items
 
 
 class new:
@@ -48,7 +49,11 @@ class new:
                     self.mapcache = cPickle.load(FILE)
             except Exception as e:
                 print e
-                sys.exit('Failed to read the mcdungeon maps cache file.')
+                print "Failed to read the mcdungeon maps cache file."
+                print "The file tracking MCDungeon map usage may be corrupt."
+                print "You can try deleting or moving this file to recover:"
+                print os.path.join(self.mapstore, 'mcdungeon_maps')
+                sys.exit(1)
         else:
             print 'Mapstore cache not found. Creating new one...'
             self.mapcache = {'used': {}, 'available': set([])}
@@ -133,7 +138,7 @@ class new:
 
         # Create map item tag
         item = nbt.TAG_Compound()
-        item['id'] = nbt.TAG_Short(358)
+        item['id'] = nbt.TAG_String(items.byName('map').id)
         item['Damage'] = nbt.TAG_Short(mapid)
         item['Count'] = nbt.TAG_Byte(1)
 
@@ -314,7 +319,7 @@ class new:
 
         # Return a map item
         item = nbt.TAG_Compound()
-        item['id'] = nbt.TAG_Short(358)
+        item['id'] = nbt.TAG_String(items.byName('map').id)
         item['Damage'] = nbt.TAG_Short(mapid)
         item['Count'] = nbt.TAG_Byte(1)
         item['tag'] = nbt.TAG_Compound()

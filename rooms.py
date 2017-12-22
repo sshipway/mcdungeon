@@ -524,7 +524,7 @@ class GreatHallNS(Basic):
                     for q in iterate_cube(p + Vec(-1, 0, -1), p + Vec(1, 0, 1)):
                         self.parent.setblock(q, mat)
                     if (random.randint(1, 100) <= 33):
-                        self.parent.setblock(p, materials.Torch)
+                        self.parent.setblock(p, materials.Torch, 5)
                     self.parent.setblock(p.down(1), materials.Fence)
         # Type B - Hanging pendant
         else:
@@ -790,15 +790,15 @@ class CellBlock(Basic2x2):
                             str(self.combo),
                             '--==+==--')
         note = nbt.TAG_Compound()
-        note['id'] = nbt.TAG_Short(items.byName("written book").value)
+        note['id'] = nbt.TAG_String(items.byName("written book").id)
         note['Damage'] = nbt.TAG_Short(0)
         note['Count'] = nbt.TAG_Byte(1)
         note['tag'] = nbt.TAG_Compound()
         note['tag']['title'] = nbt.TAG_String("Cell Combination")
         note['tag']['author'] = nbt.TAG_String("Unknown")
         note['tag']['pages'] = nbt.TAG_List()
-        words = "Level: " + \
-            str(self.pos.y + 1) + "\n\n" + ctext1 + "\n" + ctext2
+        words = '{text:"Level: ' + \
+            str(self.pos.y + 1) + "\n\n" + ctext1 + "\n" + ctext2 + '"}'
         note['tag']['pages'].append(nbt.TAG_String(words))
         max_lev = (self.c1.y // self.parent.room_height)
         self.parent.addplaceditem(note, max_lev=max_lev)
@@ -873,7 +873,7 @@ class CellBlock(Basic2x2):
         for p in [self.c1 + Vec(11, -2, 11), self.c2 + Vec(-11, -2, 11),
                   self.c3 + Vec(-11, -2, -11), self.c4 + Vec(11, -2, -11)]:
             self.parent.setblock(p, materials.Fence)
-            self.parent.setblock(p.up(1), materials.Torch)
+            self.parent.setblock(p.up(1), materials.Torch, 5)
         # Zelda tune
         # 13,12,9,3,2,10,14,18
         self.parent.setblock(self.c1 + Vec(5, 1, 19),
@@ -979,24 +979,70 @@ class ThroneRoom(Basic):
             [materials.ChiseledRedSandstone, materials.RedSandstoneSlab],
             [materials.meta_mossycobble, materials.CobblestoneSlab],
             [materials.NetherBrick, materials.NetherBrickSlab],
-            [materials.NetherBrick, materials.QuartzSlab],
             [materials.Prismarine, materials.CobblestoneSlab],
             [materials.PrismarineBricks, materials.CobblestoneSlab],
             [materials.DarkPrismarine, materials.CobblestoneSlab],
-            [materials.Stone, materials.StoneSlab]
+            [materials.Stone, materials.StoneSlab],
+            [materials.PurpurPillar, materials.PurpurSlab],
+            [materials.PurpurBlock, materials.PurpurSlab],
+            [materials.ChiseledQuartz, materials.QuartzSlab],
+            [materials.PillarQuartzBlock, materials.QuartzSlab],
         ])
 
         # Decoration colors
-        # inner color, trim color
+        # color 1 (inner),
+        # color 2 (outer),
+        # rug color 1 (inner),
+        # rug color 2 (outer),
         dmat = random.choice([
-            [materials.RedWool, materials.YellowWool],
-            [materials.RedWool, materials.LightGrayWool],
-            [materials.BlueWool, materials.YellowWool],
-            [materials.DarkGreenWool, materials.YellowWool],
-            [materials.DarkGreenWool, materials.BlackWool],
-            [materials.PurpleWool, materials.YellowWool],
-            [materials.CyanWool, materials.YellowWool],
-            [materials.LightBlueWool, materials.LightGrayWool]
+            [
+                materials.RedWool,
+                materials.YellowWool,
+                materials.RedCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.RedWool,
+                materials.LightGrayWool,
+                materials.RedCarpet,
+                materials.LightGrayCarpet,
+            ],
+            [
+                materials.BlueWool,
+                materials.YellowWool,
+                materials.BlueCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.DarkGreenWool,
+                materials.YellowWool,
+                materials.DarkGreenCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.DarkGreenWool,
+                materials.BlackWool,
+                materials.DarkGreenCarpet,
+                materials.BlackCarpet,
+            ],
+            [
+                materials.PurpleWool,
+                materials.YellowWool,
+                materials.PurpleCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.CyanWool,
+                materials.YellowWool,
+                materials.CyanCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.LightBlueWool,
+                materials.LightGrayWool,
+                materials.LightBlueCarpet,
+                materials.LightGrayCarpet,
+            ]
         ])
 
         # Basic room
@@ -1049,13 +1095,13 @@ class ThroneRoom(Basic):
             ssb(Vec(4, 10, 5 + j), cmat[1])
 
         # Rug
-        for p in iterate_cube(Vec(6, 11, 9), Vec(6, 11, 25)):
-            ssb(p, dmat[1])
-        for p in iterate_cube(Vec(7, 11, 9), Vec(7, 11, 25)):
-            ssb(p, dmat[0])
+        for p in iterate_cube(Vec(6, 10, 9), Vec(6, 10, 25)):
+            ssb(p, dmat[2])
+        for p in iterate_cube(Vec(7, 10, 9), Vec(7, 10, 25)):
+            ssb(p, dmat[3])
         for x in xrange(20):
-            p = Vec(random.randint(6, 9), 11, random.randint(9, 25))
-            sb(o + p, materials._floor)
+            p = Vec(random.randint(6, 9), 10, random.randint(9, 25))
+            sb(o + p, materials.Air)
 
         # Throne
         # Stairs
@@ -2266,7 +2312,7 @@ class Crypt(Basic):
         sb(o + Vec(3, 3, 29), materials.StoneButton, 1)
         sb(o + Vec(12, 3, 29), materials.StoneButton, 2)
         # Torches
-        ssb(Vec(1, 5, 30), materials.Torch)
+        ssb(Vec(1, 5, 30), materials.Torch, 5)
 
         # Portal
         drawExitPortal(o + Vec(6, 7, 1), self.parent)

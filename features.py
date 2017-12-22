@@ -123,7 +123,7 @@ class TripleStairs(Blank):
 
         # add a random deco object at the top
         decos = ((materials.Cauldron, 2),
-                 (materials.Torch, 0),
+                 (materials.Torch, 5),
                  (materials.FlowerPot, 10),
                  (materials.StoneDoubleSlab, 0),
                  (materials.Air, 0))
@@ -645,7 +645,7 @@ class Dais(Blank):
                       Vec(p0.x + 1, p0.y - 1, p1.z - 1), Vec(p1.x - 1, p0.y - 1, p0.z + 1)):
                 self.parent.parent.setblock(p, materials.Fence)
                 self.parent.parent.setblock(p.up(1), materials.Fence)
-                self.parent.parent.setblock(p.up(2), materials.Torch)
+                self.parent.parent.setblock(p.up(2), materials.Torch, 5)
         for p in pfunc(p0, p1):
             self.parent.parent.setblock(p.up(1), platform)
         for p in sfunc(p0, p1, 0):
@@ -782,33 +782,33 @@ class SecretRoom(Blank):
             print
 
         mats = [
-            [materials.Air, 0],          # 0 (ignore these)
-            [materials.Air, 0],          # 1
-            [materials._wall, 0],        # 2
-            [materials.Stone, 0],        # 3
-            [materials._wall, 0],        # 4
-            [materials.RedstoneWire, 0],  # 5
-            [materials.StickyPiston, 3],  # 6 - toggle piston
-            [materials.RedstoneTorchOn, 2],  # 7
-            [materials._ceiling, 0],    # 8
-            [materials.StickyPiston, 4],  # 9 - pusher piston
+            [materials.Air, 0],                  # 0 (ignore these)
+            [materials.Air, 0],                  # 1
+            [materials._wall, 0],                # 2
+            [materials.Stone, 0],                # 3
+            [materials._wall, 0],                # 4
+            [materials.RedstoneWire, 0],         # 5
+            [materials.StickyPiston, 3],         # 6 - toggle piston
+            [materials.RedstoneTorchOn, 2],      # 7
+            [materials._ceiling, 0],             # 8
+            [materials.StickyPiston, 4],         # 9 - pusher piston
             [materials.RedstoneRepeaterOff, 3],  # 10 - piston repeater
             [materials.RedstoneRepeaterOff, 7],  # 11 - toggle repeater
-            [materials.Torch, 0],       # 12
-            [materials._secret_door, 0],  # 13
-            [materials._floor, 0],      # 14
-            [materials._subfloor, 0]    # 15
+            [materials.Glowstone, 0],            # 12
+            [materials._secret_door, 0],         # 13
+            [materials._floor, 0],               # 14
+            [materials._subfloor, 0]             # 15
         ]
 
         template = [
             [[8, 8, 8, 8, 8],
-             [8, 8, 8, 8, 8],
+             [8, 8, 8, 12, 8],
              [8, 8, 8, 8, 8],
              [8, 8, 8, 8, 8],
              [8, 8, 8, 8, 8],
              [8, 8, 8, 8, 8]],
             [[2, 4, 4, 4, 4],
-             [1, 1, 1, 12, 4],
+             [1, 1, 1, 1, 4],
              [2, 4, 4, 4, 4],
              [2, 1, 1, 1, 4],
              [2, 1, 1, 1, 4],
@@ -914,6 +914,7 @@ class SecretRoom(Blank):
             sb(p, materials.RedstoneWire, hide=True)
             sb(p.down(1), materials.Stone, blank=True)
             p = p + dl
+        sb(p, materials._wall, lock=True)
         sb(p + dl, materials.StoneButton, bdata)
 
         # Extend the hallway into the room.
@@ -970,7 +971,7 @@ class SecretStudy(SecretRoom):
         self.parent.parent.addentity(
             get_entity_other_tags("ItemFrame",
                                   Pos=self.c1 + Vec(2, -3, 1),
-                                  Direction="S",
+                                  Facing="S",
                                   ItemTags=self.parent.parent.inventory.buildFrameItemTag(loot)
                                   )
         )
@@ -1012,7 +1013,7 @@ class SecretStudy(SecretRoom):
             sb(self.c1.trans(4, -2, 4),
                materials.FlowerPot, random.randrange(1, 12))
         else:
-            sb(self.c1.trans(4, -2, 4), materials.Torch)
+            sb(self.c1.trans(4, -2, 4), materials.Torch, 5)
 
         # A chest in a study should have writing supplies :)
         # item, probability, max stack amount
@@ -1091,7 +1092,7 @@ class SecretAlchemyLab(SecretRoom):
         self.parent.parent.blocks[self.c1 + Vec(5, -1, 3)].data = 2
         self.parent.parent.blocks[self.c1 + Vec(5, -1, 4)].data = 0
         self.parent.parent.blocks[self.c1 + Vec(5, -1, 5)].data = 3
-        sb(self.c1.trans(4, -2, 5), materials.Torch)
+        sb(self.c1.trans(4, -2, 5), materials.Torch, 5)
 
         # Wither skulls are rare
         SkullType = weighted_choice(((0, 30), (1, 1)))
@@ -1323,7 +1324,7 @@ class SecretSepulchure(SecretRoom):
             tags = get_entity_other_tags("ItemFrame",
                                          ItemTags=self.parent.parent.inventory.buildFrameItemTag(loot),
                                          Pos=q,
-                                         Direction=d)
+                                         Facing=d)
             dungeon.addentity(tags)
 
         # Vines
@@ -1457,7 +1458,7 @@ class SecretShop(SecretRoom):
         dungeon.addentity(
             get_entity_other_tags("ItemFrame",
                                   Pos=p,
-                                  Direction=frame_or,
+                                  Facing=frame_or,
                                   ItemTags=dungeon.inventory.buildFrameItemTag(s.free_sample.lower())
                                   )
         )
@@ -1535,7 +1536,7 @@ class SecretShop(SecretRoom):
                 rec['buyB'] = dungeon.inventory.buildItemTag(trade.input2Loot)
             tags['Offers']['Recipes'].append(rec)
         dungeon.addentity(tags)
-        
+
         # Flyer
         max_lev = (self.c1.y // dungeon.room_height) + 1
         headline = random.choice([
@@ -1552,7 +1553,7 @@ class SecretShop(SecretRoom):
         page += '\n\nFind me on the '+converttoordinal(max_lev)
         page += ' level!\n\n'+s.promotext+'",bold:false}]}'
         note = nbt.TAG_Compound()
-        note['id'] = nbt.TAG_Short(items.byName("written book").value)
+        note['id'] = nbt.TAG_String(items.byName("written book").id)
         note['Damage'] = nbt.TAG_Short(0)
         note['Count'] = nbt.TAG_Byte(1)
         note['tag'] = nbt.TAG_Compound()
@@ -1649,8 +1650,7 @@ class SecretArmory(SecretRoom):
             ("diamond boots", 1),
             ("diamond horse armor", 1),
             ("bow", 16),
-            ("stone sword", 16),
-            ("stone axe", 16),
+            ("dungeon shield", 16),
             ("iron sword", 8),
             ("iron axe", 8),
             ("gold sword", 4),
@@ -1698,6 +1698,8 @@ class SecretArmory(SecretRoom):
                 item_name = random.choice(('name tag', 'tag', 'dog tags'))
             elif "horse armor" in item:
                 item_name = random.choice(('horse armor', 'barding'))
+            elif "shield" in item:
+                item_name = random.choice(('shield', 'buckler'))
             else:
                 item_name = item.split()[-1]
 
@@ -1731,7 +1733,7 @@ class SecretArmory(SecretRoom):
             # Build the frame tags
             tags = get_entity_other_tags("ItemFrame",
                                          Pos=self.c1 + p[2],
-                                         Direction=p[3],
+                                         Facing=p[3],
                                          ItemRotation=ItemRotation,
                                          ItemTags=self.parent.parent.inventory.buildFrameItemTag(item,customname=displayname))
             # Place the item frame.
@@ -1763,7 +1765,7 @@ class SecretArmory(SecretRoom):
             ])
             words = words.format(name=name, item=item.split()[-1])
             note = nbt.TAG_Compound()
-            note['id'] = nbt.TAG_Short(items.byName("written book").value)
+            note['id'] = nbt.TAG_String(items.byName("written book").id)
             note['Damage'] = nbt.TAG_Short(0)
             note['Count'] = nbt.TAG_Byte(1)
             note['tag'] = nbt.TAG_Compound()
@@ -1780,28 +1782,28 @@ class SecretArmory(SecretRoom):
                 if 'helmet' in helmet:
                     break
             helmet_tags = nbt.TAG_Compound()
-            helmet_tags['id'] = nbt.TAG_Short(items.byName(helmet).value)
+            helmet_tags['id'] = nbt.TAG_String(items.byName(helmet).id)
             # chest
             while True:
                 chest = weighted_choice(gear)
                 if 'chestplate' in chest:
                     break
             chest_tags = nbt.TAG_Compound()
-            chest_tags['id'] = nbt.TAG_Short(items.byName(chest).value)
+            chest_tags['id'] = nbt.TAG_String(items.byName(chest).id)
             # leggings
             while True:
                 leggings = weighted_choice(gear)
                 if 'leggings' in leggings:
                     break
             leggings_tags = nbt.TAG_Compound()
-            leggings_tags['id'] = nbt.TAG_Short(items.byName(leggings).value)
+            leggings_tags['id'] = nbt.TAG_String(items.byName(leggings).id)
             # boots
             while True:
                 boots = weighted_choice(gear)
                 if 'boots' in boots:
                     break
             boots_tags = nbt.TAG_Compound()
-            boots_tags['id'] = nbt.TAG_Short(items.byName(boots).value)
+            boots_tags['id'] = nbt.TAG_String(items.byName(boots).id)
 
             tags = get_entity_mob_tags("Skeleton",
                                        Pos=self.c1 + pos,
@@ -1810,16 +1812,18 @@ class SecretArmory(SecretRoom):
                                        PersistenceRequired=1,
                                        CustomName=name
                                        )
-            tags['Equipment'][1] = boots_tags
-            tags['Equipment'][2] = leggings_tags
-            tags['Equipment'][3] = chest_tags
-            tags['Equipment'][4] = helmet_tags
+            tags['ArmorItems'][0] = boots_tags
+            tags['ArmorItems'][1] = leggings_tags
+            tags['ArmorItems'][2] = chest_tags
+            tags['ArmorItems'][3] = helmet_tags
 
-            tags['DropChances'][0].value = 1.0
-            tags['DropChances'][1].value = 0.0
-            tags['DropChances'][2].value = 0.0
-            tags['DropChances'][3].value = 0.0
-            tags['DropChances'][4].value = 0.0
+            tags['HandDropChances'][0].value = 1.0
+            tags['HandDropChances'][1].value = 1.0
+
+            tags['ArmorDropChances'][0].value = 0.0
+            tags['ArmorDropChances'][1].value = 0.0
+            tags['ArmorDropChances'][2].value = 0.0
+            tags['ArmorDropChances'][3].value = 0.0
             dungeon.addentity(tags)
         else:
             pos = Vec(5, -2, 5)
@@ -2184,7 +2188,7 @@ class CircleOfSkulls(Blank):
 
             elif(random.randint(0, 100) < 33):
                 self.parent.parent.setblock(p, materials._floor)
-                self.parent.parent.setblock(p.up(1), materials.Torch)
+                self.parent.parent.setblock(p.up(1), materials.Torch, 5)
 
 
 class Cell(Blank):
@@ -2604,7 +2608,10 @@ class Chapel(Blank):
                mats[template[z]][1])
             # Special case for banners
             if (mats[template[z]][0] == materials.Banner):
-                self.parent.parent.adddungeonbanner(p)      
+                self.parent.parent.adddungeonbanner(p)
+            # Special case for chests
+            elif (mats[template[z]][0] == materials.Chest):
+                self.parent.parent.addchest(p, loot=None)
 
 
 class ConstructionArea(Blank):

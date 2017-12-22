@@ -107,6 +107,7 @@ class Dungeon (object):
         self.stairwells = []
         self.room_size = 16
         self.room_height = 6
+        self.doormaterial = materials.WoodenDoor
         self.position = Vec(0, 0, 0)
         self.args = args
         self.dinfo = {}
@@ -271,9 +272,22 @@ class Dungeon (object):
             print 'Theme:', self.namegen.theme
             self.owner = self.namegen.genroyalname()
             print 'Owner:', self.owner
-            
+
             # And generate a unique flag
             self.flagdesign = flaggenerator.generateflag()
+            self.inventory.SetDungeonFlag(self.flagdesign)
+
+            # Pick a common door material for the dungeon
+            self.doormaterial = choice(
+                [
+                    materials.WoodenDoor,
+                    materials.SpruceDoor,
+                    materials.BirchDoor,
+                    materials.JungleDoor,
+                    materials.DarkOakDoor,
+                    materials.AcaciaDoor,
+                ]
+            )
 
             print "Generating rooms..."
             self.genrooms()
@@ -823,20 +837,23 @@ class Dungeon (object):
             return root_tag
         else:
             root_tag = nbt.TAG_Compound()
+            root_tag['SpawnData'] = nbt.TAG_Compound()
+
+        SpawnData = root_tag['SpawnData']
 
         # Cases where the entity id doesn't match the config
         entity = entity.capitalize()
         if (entity == 'Pigzombie'):
-            root_tag['EntityId'] = nbt.TAG_String('PigZombie')
+            SpawnData['id'] = nbt.TAG_String('PigZombie')
         elif (entity == 'Cavespider'):
-            root_tag['EntityId'] = nbt.TAG_String('CaveSpider')
+            SpawnData['id'] = nbt.TAG_String('CaveSpider')
         elif (entity == 'Lavaslime'):
-            root_tag['EntityId'] = nbt.TAG_String('LavaSlime')
+            SpawnData['id'] = nbt.TAG_String('LavaSlime')
         elif (entity == 'Witherboss'):
-            root_tag['EntityId'] = nbt.TAG_String('WitherBoss')
-        # For everything else the input is the EntityId
+            SpawnData['id'] = nbt.TAG_String('WitherBoss')
+        # For everything else the input is the SpawnData id
         else:
-            root_tag['EntityId'] = nbt.TAG_String(entity)
+            SpawnData['id'] = nbt.TAG_String(entity)
 
         return root_tag
 
@@ -846,10 +863,15 @@ class Dungeon (object):
         root_tag['x'] = nbt.TAG_Int(loc.x)
         root_tag['y'] = nbt.TAG_Int(loc.y)
         root_tag['z'] = nbt.TAG_Int(loc.z)
-        root_tag['Text1'] = nbt.TAG_String(text1)
-        root_tag['Text2'] = nbt.TAG_String(text2)
-        root_tag['Text3'] = nbt.TAG_String(text3)
-        root_tag['Text4'] = nbt.TAG_String(text4)
+
+        def JSONformat(text):
+            if ( text.startswith('{') == True ):
+                return text
+            return '{"text":"'+text.replace('"','\"')+'"}'
+        root_tag['Text1'] = nbt.TAG_String(JSONformat(text1))
+        root_tag['Text2'] = nbt.TAG_String(JSONformat(text2))
+        root_tag['Text3'] = nbt.TAG_String(JSONformat(text3))
+        root_tag['Text4'] = nbt.TAG_String(JSONformat(text4))
         self.tile_ents[loc] = root_tag
 
     def addspawner(self, loc, entity='', tier=-1):
@@ -942,7 +964,7 @@ class Dungeon (object):
                 tierf = loottable._maxtier - 1
             tier = max(1, int(tierf))
         elif tier > loottable._maxtier:
-            tier = loottable._maxtier         
+            tier = loottable._maxtier
         if self.args.debug:
             print 'Adding chest: level',level+1,'tier',tier
         root_tag = nbt.TAG_Compound()
@@ -956,7 +978,9 @@ class Dungeon (object):
             root_tag['Lock'] = nbt.TAG_String(lock)
         inv_tag = nbt.TAG_List()
         root_tag['Items'] = inv_tag
-        if len(loot) == 0:
+        if loot is None:
+            loot = []
+        elif len(loot) == 0:
             loot = list(loottable.rollLoot(tier, level + 1))
         for i in loot:
             item_tag = self.inventory.buildItemTag(i)
@@ -1011,13 +1035,13 @@ class Dungeon (object):
             else:
                 item_tag['Count'] = nbt.TAG_Byte(count)
             count -= 64
-            item_tag['id'] = nbt.TAG_Short(loottable.items.byName(name).value)
+            item_tag['id'] = nbt.TAG_String(loottable.items.byName(name).id)
             item_tag['Damage'] = nbt.TAG_Short(
                 loottable.items.byName(name).data)
             inv_tag.append(item_tag)
             slot += 1
         self.tile_ents[loc] = root_tag
-        
+
     def adddungeonbanner(self, loc):
         root_tag = get_tile_entity_tags(eid="Banner",Pos=loc,**self.flagdesign)
         self.addtileentity(root_tag)
@@ -1638,7 +1662,6 @@ class Dungeon (object):
                     self.blocks[pos.down(offset)].material == materials.Air and
                     self.blocks[attach_pos].material == materials._wall and
                     pos.up(1).y / self.room_height == level):
-                #self.blocks[pos.down(offset)].material = materials.Torch
                 self.setblock(pos.down(offset), materials.Torch, val)
                 count += 1
         if (level < self.levels - 1):

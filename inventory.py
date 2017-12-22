@@ -14,6 +14,7 @@ class new:
 
     def __init__(self, mapstore):
         self.mapstore = mapstore
+        self.flag = {'Base':0}
 
         # Make a list of all the txt files in the books directory
         if os.path.isdir(os.path.join(sys.path[0], cfg.dir_books)):
@@ -28,7 +29,7 @@ class new:
                 if (str(file.lower()).endswith(".txt") and
                         file.lower() != "readme.txt"):
                     self.booklist.append(file)
-            
+
         self.valid_characters = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ "
 
         # Make a list of all paintings
@@ -50,10 +51,10 @@ class new:
 
     def loadrandbooktext(self):
         item = nbt.TAG_Compound()
-        item['id'] = nbt.TAG_Short(387)
+        item['id'] = nbt.TAG_String('minecraft:written_book')
         # No books? Give a book and quill instead
         if len(self.booklist) == 0:
-            item['id'] = nbt.TAG_Short(386)
+            item['id'] = nbt.TAG_String('minecraft:writable_book')
             return item
         # Open the book's text file
         bookfile = open(os.path.join(self.book_path, random.choice(self.booklist)))
@@ -99,7 +100,7 @@ class new:
         # No paintings? Give a blank map (ID: 395)
         if len(self.paintlist) == 0:
             item = nbt.TAG_Compound()
-            item['id'] = nbt.TAG_Short(395)
+            item['id'] = nbt.TAG_String('minecraft:map')
             return item
 
         return self.mapstore.add_painting(random.choice(self.paintlist))
@@ -164,7 +165,7 @@ class new:
         # Otherwise, we will build the compound
         item_tag = nbt.TAG_Compound()
         # Standard stuff
-        item_tag['id'] = nbt.TAG_Short(i.id)
+        item_tag['id'] = nbt.TAG_String(i.id)
         item_tag['Damage'] = nbt.TAG_Short(i.damage)
         # Enchantments
         if len(i.enchantments) > 0:
@@ -186,18 +187,25 @@ class new:
                 item_tag['tag']
             except:
                 item_tag['tag'] = nbt.TAG_Compound()
-            item_tag['tag']['CustomPotionEffects'] = nbt.TAG_List()
-            elist = item_tag['tag']['CustomPotionEffects']
-            for e in i.p_effect.split(','):
-                id, amp, dur = e.split('-')
-                e_tag = nbt.TAG_Compound()
-                e_tag['Id'] = nbt.TAG_Byte(id)
-                e_tag['Amplifier'] = nbt.TAG_Byte(amp)
-                e_tag['Duration'] = nbt.TAG_Int(dur)
-                # Flags for hiding potion particles
-                if i.flag == 'HIDE_PARTICLES' or i.flag == 'HIDE_ALL':
-                    e_tag['ShowParticles'] = nbt.TAG_Byte(0)
-                elist.append(e_tag)
+
+            # Is this a 'basic' potion i.e. no custom effects list
+            if (i.p_effect.replace(',','').replace('-','').isdigit()):
+                item_tag['tag']['CustomPotionEffects'] = nbt.TAG_List()
+                elist = item_tag['tag']['CustomPotionEffects']
+                for e in i.p_effect.split(','):
+                    id, amp, dur = e.split('-')
+                    e_tag = nbt.TAG_Compound()
+                    e_tag['Id'] = nbt.TAG_Byte(id)
+                    e_tag['Amplifier'] = nbt.TAG_Byte(amp)
+                    e_tag['Duration'] = nbt.TAG_Int(dur)
+                    # Flags for hiding potion particles
+                    if i.flag == 'HIDE_PARTICLES' or i.flag == 'HIDE_ALL':
+                        e_tag['ShowParticles'] = nbt.TAG_Byte(0)
+                    elist.append(e_tag)
+            else:
+                item_tag['tag']['Potion'] = nbt.TAG_String(i.p_effect)
+                # For basic potions there is no need for a custom name
+                i.customname = ''
         # Flag for hiding additional text
         if i.flag == 'HIDE_EFFECTS' or i.flag == 'HIDE_ALL':
             try:
@@ -255,10 +263,32 @@ class new:
             else:
                 item_tag['tag']['display']['color'] = nbt.TAG_Int(i.flagparam)
         # special cases for written books and paintings
-        if (i.flag == 'WRITTEN'):
+        elif (i.flag == 'WRITTEN'):
             item_tag = self.loadrandbooktext()
-        if (i.flag == 'PAINT'):
+        elif (i.flag == 'PAINT'):
             item_tag = self.loadrandpainting()
+        # Tags for this dungeon's flag
+        elif (i.flag == 'DUNGEON_FLAG'):
+            try:
+                item_tag['tag']
+            except:
+                item_tag['tag'] = nbt.TAG_Compound()
+            item_tag['tag']['BlockEntityTag'] = nbt.TAG_Compound()
+            item_tag['tag']['BlockEntityTag']['Base'] = nbt.TAG_Int(self.flag['Base'])
+            item_tag['tag']['BlockEntityTag']['Patterns'] = nbt.TAG_List()
+            for p in self.flag['Patterns']:
+                q = nbt.TAG_Compound()
+                q['Color'] = nbt.TAG_Int(p[0])
+                q['Pattern'] = nbt.TAG_String(p[1])
+                item_tag['tag']['BlockEntityTag']['Patterns'].append(q)
+        elif (i.flag.startswith('ENTITYTAG:')):
+            try:
+                item_tag['tag']
+            except:
+                item_tag['tag'] = nbt.TAG_Compound()
+            item_tag['tag']['EntityTag'] = nbt.TAG_Compound()
+            item_tag['tag']['EntityTag']['id'] = nbt.TAG_String(i.flag.split(':')[1])
+
         # Set the slot and count
         if i.slot != None:
             item_tag['Slot'] = nbt.TAG_Byte(i.slot)
@@ -276,3 +306,6 @@ class new:
         out = out.replace('\\s',u"\u00A7".encode('utf8'))
         out = out.replace('<[BACKSLASH]>','\\')
         return out
+
+    def SetDungeonFlag(self, flag):
+        self.flag = flag
