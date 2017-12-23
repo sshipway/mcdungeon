@@ -77,7 +77,17 @@ class Stairwell(Blank):
     _name = 'stairwell'
     _is_stairwell = True
 
+    def clearSubfloor(self):
+        sb = self.parent.parent.setblock
+        gb = self.parent.parent.getblock
+        for x in iterate_cube(
+            self.parent.loc.trans(0, -1, 0),
+            self.parent.loc+Vec(15, -1, 15)
+        ):
+            sb(x, materials._floor)
+
     def render(self):
+        self.clearSubfloor()
         if (sum_points_inside_flat_poly(*self.parent.canvas) > 0):
             start = self.parent.loc.trans(
                 5,
@@ -102,29 +112,25 @@ class Stairwell(Blank):
                                                 mat[1])
 
 
-class TripleStairs(Blank):
+class TripleStairs(Stairwell):
     _name = 'triplestairs'
     _is_stairwell = True
 
     def render(self):
+        self.clearSubfloor()
         # create a shortcut to the set block fN
         sb = self.parent.parent.setblock
+        dungeon = self.parent.parent
 
         center = self.parent.canvasCenter()
 
         start = self.parent.loc.trans(5, self.parent.parent.room_height - 2, 5)
         start = start.trans(0, -6, 0)
 
-        # handrail
-        for x in iterate_four_walls(start.trans(-1, -1, -1), start.trans(6, -1, 6), 0):
-            sb(x, materials.IronBars, 0)
-        sb(start.trans(2, -1, -1), materials.Air, 0)
-        sb(start.trans(3, -1, -1), materials.Air, 0)
-
         # add a random deco object at the top
         decos = ((materials.Cauldron, 2),
                  (materials.Torch, 5),
-                 (materials.FlowerPot, 10),
+                 (materials.FlowerPot, 0),
                  (materials.StoneDoubleSlab, 0),
                  (materials.Air, 0))
 
@@ -132,6 +138,10 @@ class TripleStairs(Blank):
 
         sb(start.trans(1, -1, 1), deco[0], deco[1])
         sb(start.trans(4, -1, 1), deco[0], deco[1])
+        # Add entity data if flower pot was chosen
+        if deco[0] == materials.FlowerPot:
+            dungeon.addflowerpot(start.trans(1, -1, 1), itemname="dead bush")
+            dungeon.addflowerpot(start.trans(4, -1, 1), itemname="dead bush")
 
         # using the following materials...
         mats = [
@@ -204,11 +214,12 @@ class TripleStairs(Blank):
                         mats[template[y][z][x]][1])
 
 
-class TowerWithLadder(Blank):
+class TowerWithLadder(Stairwell):
     _name = 'towerwithladder'
     _is_stairwell = True
 
     def render(self):
+        self.clearSubfloor()
         # create a shortcut to the set block fN
         sb = self.parent.parent.setblock
 
@@ -262,11 +273,12 @@ class TowerWithLadder(Blank):
             sb(x, materials.Ladder, 3)
 
 
-class Scaffolding(Blank):
+class Scaffolding(Stairwell):
     _name = 'scaffolding'
     _is_stairwell = True
 
     def render(self):
+        self.clearSubfloor()
         # create a shortcut to the set block fN
         sb = self.parent.parent.setblock
 
@@ -953,7 +965,8 @@ class SecretStudy(SecretRoom):
 
     def renderSecretPost(self):
         sb = self.parent.parent.setblock
-        blocks = self.parent.parent.blocks
+        dungeon = self.parent.parent
+        blocks = dungeon.blocks
 
         # Bookshelves
         for p in iterate_four_walls(Vec(1, -1, 1), Vec(8, -1, 8), 2):
@@ -968,11 +981,11 @@ class SecretStudy(SecretRoom):
                                 ("written book", 1),
                                 ("custom painting", 1)))
         sb(self.c1 + Vec(2, -3, 1), materials._wall)
-        self.parent.parent.addentity(
-            get_entity_other_tags("ItemFrame",
+        dungeon.addentity(
+            get_entity_other_tags("item_frame",
                                   Pos=self.c1 + Vec(2, -3, 1),
                                   Facing="S",
-                                  ItemTags=self.parent.parent.inventory.buildFrameItemTag(loot)
+                                  ItemTags=dungeon.inventory.buildFrameItemTag(loot)
                                   )
         )
 
@@ -1003,23 +1016,27 @@ class SecretStudy(SecretRoom):
                 sb(p,
                    mats[template[x][z]][0],
                    mats[template[x][z]][1])
-        self.parent.parent.blocks[self.c1 + Vec(5, -1, 4)].data = 2
-        self.parent.parent.blocks[self.c1 + Vec(5, -1, 5)].data = 0
-        self.parent.parent.blocks[self.c1 + Vec(5, -1, 6)].data = 3
+        dungeon.blocks[self.c1 + Vec(5, -1, 4)].data = 2
+        dungeon.blocks[self.c1 + Vec(5, -1, 5)].data = 0
+        dungeon.blocks[self.c1 + Vec(5, -1, 6)].data = 3
 
         if (random.random() < 0.1):
             sb(self.c1.trans(4, -2, 4), materials.Cake, random.randrange(0, 6))
         elif (random.random() < 0.4):
-            sb(self.c1.trans(4, -2, 4),
-               materials.FlowerPot, random.randrange(1, 12))
+            flowers = ("poppy", "blue orchid", "allium", "azure bluet",
+                       "red tulip", "orange tulip", "white tulip", "pink tulip",
+                       "oxeye daisy", "dandelion", "fern", "cactus")
+            sb(self.c1.trans(4, -2, 4), materials.FlowerPot, 0)
+            dungeon.addflowerpot(self.c1.trans(4, -2, 4),
+                                 itemname=random.choice(flowers))
         else:
             sb(self.c1.trans(4, -2, 4), materials.Torch, 5)
 
         # A chest in a study should have writing supplies :)
         # item, probability, max stack amount
         writing_items = [(items.byName('written book'), 1, 1),
-                         (items.byName('written book'), 0.3, 1),
-                         (items.byName('written book'), 0.2, 1),
+                         (items.byName('knowledge book'), 0.66, 1),
+                         (items.byName('written book'), 0.33, 1),
                          (items.byName('book'), 0.7, 5),
                          (items.byName('paper'), 0.8, 10),
                          (items.byName('ink sac'), 0.9, 5),
@@ -1039,9 +1056,9 @@ class SecretStudy(SecretRoom):
                         s[0].data,
                         '',
                         flag=s[0].flag))
-        self.parent.parent.addchest(self.c1.trans(4, -1, 6), loot=deskloot)
+        dungeon.addchest(self.c1.trans(4, -1, 6), loot=deskloot)
 
-        self.parent.parent.cobwebs(self.c1.up(4), self.c3)
+        dungeon.cobwebs(self.c1.up(4), self.c3)
 
         # Hide the room from maps.
         self.hideRoom()
@@ -1108,7 +1125,7 @@ class SecretAlchemyLab(SecretRoom):
         #
         sb(self.c1.trans(4, -2, 4), materials.BrewingStand)
         root_tag = nbt.TAG_Compound()
-        root_tag['id'] = nbt.TAG_String('Cauldron')
+        root_tag['id'] = nbt.TAG_String('brewing_stand')
         root_tag['x'] = nbt.TAG_Int(self.c1.trans(4, -2, 4).x)
         root_tag['y'] = nbt.TAG_Int(self.c1.trans(4, -2, 4).y)
         root_tag['z'] = nbt.TAG_Int(self.c1.trans(4, -2, 4).z)
@@ -1214,6 +1231,7 @@ class SecretSepulchure(SecretRoom):
         # Random stuff to be buried with. Like Crypt, but not as good.
         lootc = [(items.byName('iron ingot'), 5),
                  (items.byName('written book'), 10),
+                 (items.byName('knowledge book'), 10),
                  (items.byName('bow'), 10),
                  (items.byName('diamond'), 5),
                  (items.byName('gold ingot'), 5),
@@ -1321,7 +1339,7 @@ class SecretSepulchure(SecretRoom):
                 d = gems[0]
             else:
                 d = gems[1]
-            tags = get_entity_other_tags("ItemFrame",
+            tags = get_entity_other_tags("item_frame",
                                          ItemTags=self.parent.parent.inventory.buildFrameItemTag(loot),
                                          Pos=q,
                                          Facing=d)
@@ -1382,7 +1400,7 @@ class SecretShop(SecretRoom):
             frame_or = 'W'
 
         # materials by profession id
-        if (s.profession == 0): # Farmer
+        if (s.profession == 0):   # Farmer
             upperslab = materials.UpperOakWoodSlab
             pillers = materials.Wood
             floor = materials.BirchWoodPlanks
@@ -1402,11 +1420,19 @@ class SecretShop(SecretRoom):
             pillers = materials.ChiseledStoneBrick
             floor = materials.PolishedGranite
             banner_cols = [15,2]
-        else: # Butcher (4 and future)
+        elif (s.profession == 4): # Butcher
             upperslab = materials.UpperQuartzSlab
             pillers = materials.PillarQuartzBlock
             floor = materials.PolishedDiorite
             banner_cols = [15,0]
+        else:                     # Nitwit (5 and future)
+            upperslab = materials.UpperSandstoneSlab
+            pillers = materials.ChiseledSandstone
+            floor = materials.Clay
+            banner_cols = [11,14]
+            # Special case: Replace the walls, just for this type
+            for q in iterate_four_walls(self.c1, self.c3, self.parent.parent.room_height - 2):
+                sb(q, materials.meta_decoratedsandstone)
 
         # Floor
         for q in iterate_cube(self.c1, self.c3):
@@ -1433,7 +1459,8 @@ class SecretShop(SecretRoom):
                                     eid='Banner',
                                     Pos=b[0],
                                     Base=banner_cols[0],
-                                    Patterns=[[banner_cols[1],'ss']]))
+                                    Patterns=[[banner_cols[1],'ss'],
+                                              [banner_cols[0],'bts']]))
         # Dungeon's Banners
         banner_pos = [[bl.up(3)+(rt*8)+(fw*1),orient['D']],
                       [bl.up(3)+(rt*1)+(fw*8),orient['L']]]
@@ -1450,13 +1477,13 @@ class SecretShop(SecretRoom):
         p = bl.up(2)+rt+(fw*7)
         sb(p, materials.EnderChest, orient['U'])
         dungeon.addtileentity(get_tile_entity_tags(
-                                    eid='EnderChest',
+                                    eid='ender_chest',
                                     Pos=p))
 
         # Free sample!
         p = bl.up(3)+(rt*7)
         dungeon.addentity(
-            get_entity_other_tags("ItemFrame",
+            get_entity_other_tags("item_frame",
                                   Pos=p,
                                   Facing=frame_or,
                                   ItemTags=dungeon.inventory.buildFrameItemTag(s.free_sample.lower())
@@ -1479,7 +1506,12 @@ class SecretShop(SecretRoom):
             sb(q, upperslab)
 
         # Desk plant
-        sb(bl.up(2)+(rt*2)+(fw*5), materials.FlowerPot, random.randrange(1, 12))
+        flowers = ("poppy", "blue orchid", "allium", "azure bluet",
+                       "red tulip", "orange tulip", "white tulip", "pink tulip",
+                       "oxeye daisy", "dandelion", "fern", "cactus")
+        sb(bl.up(2)+(rt*2)+(fw*5), materials.FlowerPot, 0)
+        dungeon.addflowerpot(bl.up(2)+(rt*2)+(fw*5),
+                             itemname=random.choice(flowers))
 
         # lights
         redstonepos = ([1,0],[7,0],[0,7],[9,8],[5,5])
@@ -1510,7 +1542,7 @@ class SecretShop(SecretRoom):
 
         # Create the shopkeeper
         pos = bl.up(1) +(rt*3)+(fw*3)
-        tags = get_entity_mob_tags('Villager',
+        tags = get_entity_mob_tags('villager',
                                    Pos=pos,
                                    Profession=s.profession,
                                    CustomName=shopkeeper_name)
@@ -1549,9 +1581,19 @@ class SecretShop(SecretRoom):
             "Always Open!",
             "Goods bought and sold.",
         ])
-        page =  '{text:"'+headline+'",bold:true,extra:[{text:"\n\n'+shopname
-        page += '\n\nFind me on the '+converttoordinal(max_lev)
-        page += ' level!\n\n'+s.promotext+'",bold:false}]}'
+        page = encodeJSONtext(
+            {
+                "text": headline,
+                "bold": True,
+                "extra": [
+                    {
+                        "text": "\n\n" + shopname + "\n\nFind me on the " +
+                        converttoordinal(max_lev) + " level!\n\n" + s.promotext,
+                        "bold": False
+                    }
+                ]
+            }
+        )
         note = nbt.TAG_Compound()
         note['id'] = nbt.TAG_String(items.byName("written book").id)
         note['Damage'] = nbt.TAG_Short(0)
@@ -1626,41 +1668,42 @@ class SecretArmory(SecretRoom):
 
         # Now, add a random item to each frame.
         gear = (
-            ("random leather helmet", 16),
-            ("random leather chestplate", 16),
-            ("random leather leggings", 16),
-            ("random leather boots", 16),
-            ("chainmail helmet", 8),
-            ("chainmail chestplate", 8),
-            ("chainmail leggings", 8),
-            ("chainmail boots", 8),
-            ("iron helmet", 4),
-            ("iron chestplate", 4),
-            ("iron leggings", 4),
-            ("iron boots", 4),
-            ("iron horse armor", 4),
-            ("gold helmet", 2),
-            ("gold chestplate", 2),
-            ("gold leggings", 2),
-            ("gold boots", 2),
-            ("gold horse armor", 2),
-            ("diamond helmet", 1),
-            ("diamond chestplate", 1),
-            ("diamond leggings", 1),
-            ("diamond boots", 1),
-            ("diamond horse armor", 1),
-            ("bow", 16),
-            ("dungeon shield", 16),
-            ("iron sword", 8),
-            ("iron axe", 8),
-            ("gold sword", 4),
-            ("gold axe", 4),
-            ("diamond sword", 2),
-            ("diamond axe", 2),
-            ("fishing rod", 8),
-            ("carrot on a stick", 8),
-            ("shears", 8),
-            ("name tag", 8)
+            ("random leather helmet", 32),
+            ("random leather chestplate", 32),
+            ("random leather leggings", 32),
+            ("random leather boots", 32),
+            ("chainmail helmet", 16),
+            ("chainmail chestplate", 16),
+            ("chainmail leggings", 16),
+            ("chainmail boots", 16),
+            ("iron helmet", 8),
+            ("iron chestplate", 8),
+            ("iron leggings", 8),
+            ("iron boots", 8),
+            ("iron horse armor", 8),
+            ("gold helmet", 4),
+            ("gold chestplate", 4),
+            ("gold leggings", 4),
+            ("gold boots", 4),
+            ("gold horse armor", 4),
+            ("diamond helmet", 2),
+            ("diamond chestplate", 2),
+            ("diamond leggings", 2),
+            ("diamond boots", 2),
+            ("diamond horse armor", 2),
+            ("bow", 32),
+            ("dungeon shield", 32),
+            ("iron sword", 16),
+            ("iron axe", 16),
+            ("gold sword", 8),
+            ("gold axe", 8),
+            ("diamond sword", 4),
+            ("diamond axe", 4),
+            ("fishing rod", 16),
+            ("carrot on a stick", 16),
+            ("shears", 16),
+            ("name tag", 16),
+            ("elytra", 1)
         )
 
         for p in alcoves:
@@ -1700,6 +1743,8 @@ class SecretArmory(SecretRoom):
                 item_name = random.choice(('horse armor', 'barding'))
             elif "shield" in item:
                 item_name = random.choice(('shield', 'buckler'))
+            elif "elytra" in item:
+                item_name = random.choice(('elytra', 'wings', 'glider'))
             else:
                 item_name = item.split()[-1]
 
@@ -1731,7 +1776,7 @@ class SecretArmory(SecretRoom):
             else:
                 displayname = name + "'s " + item_name
             # Build the frame tags
-            tags = get_entity_other_tags("ItemFrame",
+            tags = get_entity_other_tags("item_frame",
                                          Pos=self.c1 + p[2],
                                          Facing=p[3],
                                          ItemRotation=ItemRotation,
@@ -1772,7 +1817,7 @@ class SecretArmory(SecretRoom):
             note['tag']['title'] = nbt.TAG_String("A torn page")
             note['tag']['author'] = nbt.TAG_String("Unknown")
             note['tag']['pages'] = nbt.TAG_List()
-            note['tag']['pages'].append(nbt.TAG_String('"%s"'%(words)))
+            note['tag']['pages'].append(nbt.TAG_String(encodeJSONtext(words)))
             max_lev = (self.c1.y // dungeon.room_height) + 1
             dungeon.addplaceditem(note, max_lev=max_lev)
 
@@ -1805,13 +1850,15 @@ class SecretArmory(SecretRoom):
             boots_tags = nbt.TAG_Compound()
             boots_tags['id'] = nbt.TAG_String(items.byName(boots).id)
 
-            tags = get_entity_mob_tags("Skeleton",
-                                       Pos=self.c1 + pos,
-                                       CanPickUpLoot=1,
-                                       SkeletonType=random.randint(0, 1),
-                                       PersistenceRequired=1,
-                                       CustomName=name
-                                       )
+            tags = get_entity_mob_tags(
+                random.choice(
+                    ("skeleton","wither_skeleton")
+                ),
+                Pos=self.c1 + pos,
+                CanPickUpLoot=1,
+                PersistenceRequired=1,
+                CustomName=name
+            )
             tags['ArmorItems'][0] = boots_tags
             tags['ArmorItems'][1] = leggings_tags
             tags['ArmorItems'][2] = chest_tags
@@ -1836,7 +1883,7 @@ class SecretArmory(SecretRoom):
             displayname = name + "'s " + item.split()[-1]
 
         xplevel = (int(self.c1.y / dungeon.room_height) + 1) * 5
-        tags = get_entity_item_tags("Item",
+        tags = get_entity_item_tags("item",
                                     Pos=self.c1 + pos.up(1),
                                     Age=-32768,
                                     ItemInfo=items.byName(item))
@@ -1977,7 +2024,7 @@ class SecretEnchantingLibrary(SecretRoom):
         p = self.c1 + Vec(5, -1, 5)
         sb(p, materials.EnchantmentTable)
         tags = nbt.TAG_Compound()
-        tags['id'] = nbt.TAG_String('EnchantTable')
+        tags['id'] = nbt.TAG_String('enchanting_table')
         tags['x'] = nbt.TAG_Int(p.x)
         tags['y'] = nbt.TAG_Int(p.y)
         tags['z'] = nbt.TAG_Int(p.z)
@@ -1997,14 +2044,14 @@ class SecretEnchantingLibrary(SecretRoom):
         p = (bl + rt * 5 + fw * 1).up(1)
         sb(p, materials.EnderChest, chests[1])
         tags = nbt.TAG_Compound()
-        tags['id'] = nbt.TAG_String('EnderChest')
+        tags['id'] = nbt.TAG_String('ender_chest')
         tags['x'] = nbt.TAG_Int(p.x)
         tags['y'] = nbt.TAG_Int(p.y)
         tags['z'] = nbt.TAG_Int(p.z)
         dungeon.tile_ents[p] = tags
 
         # She's a witch!
-        tags = get_entity_mob_tags("Witch",
+        tags = get_entity_mob_tags("witch",
                                    Pos=self.c1 + Vec(5, -2, 5) + fw * 2,
                                    PersistenceRequired=1,
                                    CustomName=self.parent.parent.namegen.genname(),
@@ -2164,31 +2211,57 @@ class CircleOfSkulls(Blank):
         p1 = p0.trans(size - 1, 0, size - 1)
 
         skulls = (
-            (0, 50),  # Plain Skull
-            (1, 1),  # Wither Skull
+            (0, 50), # Skeleton
+            (2, 10), # Zombie
+            (3, 5),  # Custom
+            (4, 1),  # Creeper
+            (1, 1),  # Wither Skeleton
         )
-        counter = 0
+        custom_skulls = [
+            None, # Steve
+            "MHF_Alex",
+            "MHF_Blaze",
+            "MHF_CaveSpider",
+            "MHF_Cow",
+            "MHF_Enderman",
+            "MHF_Golem",
+            "MHF_Pig",
+            "MHF_PigZombie",
+            "MHF_Spider",
+            "MHF_Villager"
+        ]
+        dun = self.parent.parent
+
+        def ensurefloor(p):
+            if (dun.blocks[p].material == materials.Air or
+                dun.blocks[p].material == materials.Water or
+                dun.blocks[p].material ==  materials.Lava or
+                dun.blocks[p].material == materials.StillWater):
+                    dun.setblock(p, materials._floor)
+
         for p in iterate_ellipse(p0, p1):
             if((p.x + p.z) % 2 == 0):
-                self.parent.parent.setblock(p, materials._floor)
-                self.parent.parent.setblock(p.up(1), materials.Fence)
+                ensurefloor(p)
+                dun.setblock(p.up(1), materials.Fence)
                 # Abort if there is no skull here
                 if (random.randint(0, 100) < 33):
                     continue
                 SkullType = weighted_choice(skulls)
-                self.parent.parent.setblock(p.up(2), materials.MobHead, 1)
-                root_tag = nbt.TAG_Compound()
-                root_tag['id'] = nbt.TAG_String('Skull')
-                root_tag['x'] = nbt.TAG_Int(p.x)
-                root_tag['y'] = nbt.TAG_Int(p.y - 2)
-                root_tag['z'] = nbt.TAG_Int(p.z)
-                root_tag['SkullType'] = nbt.TAG_Byte(SkullType)
-                root_tag['Rot'] = nbt.TAG_Byte(random.randint(0, 15))
-                self.parent.parent.tile_ents[p.up(2)] = root_tag
+                if SkullType == 3:
+                    SkullOwner = random.choice(custom_skulls)
+                else:
+                    SkullOwner = None
+                dun.setblock(p.up(2), materials.MobHead, 1)
+                root_tag = get_tile_entity_tags(eid="skull",
+                                                SkullType=SkullType,
+                                                ExtraType=SkullOwner,
+                                                Rot=random.randint(0, 15),
+                                                Pos=(p.x, p.y - 2, p.z))
+                dun.tile_ents[p.up(2)] = root_tag
 
             elif(random.randint(0, 100) < 33):
-                self.parent.parent.setblock(p, materials._floor)
-                self.parent.parent.setblock(p.up(1), materials.Torch, 5)
+                ensurefloor(p)
+                dun.setblock(p.up(1), materials.Torch, 5)
 
 
 class Cell(Blank):
@@ -2454,7 +2527,7 @@ class WildGrowth(Farm):
                 (99,60),
             ))
             # Add the rabbit entity to the room.
-            dungeon.addentity(get_entity_mob_tags('Rabbit',
+            dungeon.addentity(get_entity_mob_tags('rabbit',
                                          Pos=pos,
                                          RabbitType=rtype,
                                          PersistenceRequired=1))

@@ -244,7 +244,7 @@ class SmallCottage(Clearing):
             # add table
             self.parent.setblock(self.offset+Vec(8,-1,8),materials.Fence)
             self.parent.setblock(self.offset+Vec(8,-2,8),materials.WoodenPressurePlate)
-            
+
             if self._abandoned is True:
                 # if abandoned, add cobwebs (parent function) voxels relative
                 self.parent.cobwebs(self.offset + Vec(8,0,8) + Vec(-2,0,2), self.offset + Vec(8,0,8) + Vec(3,-4,-2))
@@ -255,7 +255,7 @@ class SmallCottage(Clearing):
                 # add villager
                 shopkeeper_name = self.parent.namegen.genname()
                 pos = self.offset + Vec(8,-1,8)
-                tags = get_entity_mob_tags('Villager',
+                tags = get_entity_mob_tags('villager',
                                    Pos=pos,
                                    Profession=0, # farmer always
                                    CustomName=shopkeeper_name)
@@ -436,12 +436,11 @@ class Memorial(Clearing):
         painting = self.parent.inventory.mapstore.add_painting(random.choice(self.parent.inventory.paintlist))
         picof = painting['tag']['display']['Name'].value
         self.description = 'a memorial to %s' % ( picof )
-        framed_painting = get_entity_other_tags("ItemFrame",
+        framed_painting = get_entity_other_tags("item_frame",
                                          Pos=self.offset + Vec(8.0,-3,8), # block frame is IN
                                          Facing="S", # 0=south
                                          ItemRotation=0,
                                          ItemTags=painting)
-        framed_painting['Invulnerable'] = nbt.TAG_Byte(1)
         # Place the item frame.
         self.parent.addentity(framed_painting)
 
@@ -708,7 +707,7 @@ class Forge(Clearing):
                 # add villager
                 villager_name = self.parent.namegen.genname()
                 pos = self.offset + Vec(9,-1,9)
-                tags = get_entity_mob_tags('Villager',
+                tags = get_entity_mob_tags('villager',
                                    Pos=pos,
                                    Profession=3, # blacksmith always
                                    CustomName=villager_name)
@@ -842,16 +841,12 @@ class Graveyard(Clearing):
             self.parent.setblock(self.offset + pos + Vec(2,1,1), materials.OakWoodPlanks, soft=False)
             # flower on grave
             if random.randint(0,100) < 50:
-                _flowers = [
-                    (materials.PottedDandelion, 10),
-                    (materials.PottedPoppy, 10),
-                    (materials.PottedRedMushroom, 1),
-                    (materials.PottedDeadBush, 2),
-                    (materials.FlowerPot, 2),
-                    (materials.PottedCactus, 2),
-                ]
-                flower = weighted_choice(_flowers)
-                self.parent.setblock(self.offset + pos + Vec(2,-1,1), flower)
+                flowers = ("poppy", "blue orchid", "allium", "azure bluet",
+                           "red tulip", "orange tulip", "white tulip", "pink tulip",
+                           "oxeye daisy", "dandelion", "dead bush", "air")
+                self.parent.setblock(self.offset + pos + Vec(2,-1,1), materials.FlowerPot, 0)
+                self.parent.addflowerpot(self.offset + pos + Vec(2,-1,1),
+                                         itemname=random.choice(flowers))
 
         # marker: same graves are unmarked
         if random.randint(0,100)>5:
@@ -988,9 +983,8 @@ def pickLandmark(thunt, pos,
     if (landmark_list is None):
         # Identify biome of this chunk
         # print 'identify biome for %d, %d' % ( thunt.position.x + pos.x, thunt.position.z + pos.z )
-        rset = thunt.oworld.get_regionset(None)
-        cdata = rset.get_chunk(pos.x >> 4, pos.z >> 4)
-        biome = numpy.argmax(numpy.bincount((cdata['Biomes'].flatten())))
+        cdata = thunt.world.getChunk(pos.x >> 4, pos.z >> 4)
+        biome = numpy.argmax(numpy.bincount((cdata.Biomes.flatten())))
         # do we have a special landmark list for this biome, or take default list?
         try:
             landmark_list = weighted_shuffle(cfg.master_landmarks[biome])

@@ -7,8 +7,9 @@ import cfg
 import mapstore
 import loottable
 import items
-from utils import topheavy_random, converttoordinal
+from utils import topheavy_random, converttoordinal, encodeJSONtext, random_line_from_file
 from pymclevel import nbt
+from nbtyamlbridge import tagsfromfile
 
 class new:
 
@@ -74,10 +75,7 @@ class new:
         # limits
         for p in bookdata[:50]:
             page = filter(lambda x: x in self.valid_characters, p)
-            page = self.ConvertEscapeChars(page)
-            # Escape quote charcaters
-            page = page.replace('"','\\"')
-            item['tag']["pages"].append(nbt.TAG_String('"%s"'%(page[:256])))
+            item['tag']["pages"].append(nbt.TAG_String(encodeJSONtext(page[:256])))
         # Give the book an edition
         ed = topheavy_random(0, 9)
         item['tag']['display'] = nbt.TAG_Compound()
@@ -106,32 +104,6 @@ class new:
         return self.mapstore.add_painting(random.choice(self.paintlist))
 
 
-    def loadrandfortune(self):
-        if os.path.isfile(os.path.join(sys.path[0], cfg.file_fortunes)):
-            forune_path = os.path.join(sys.path[0], cfg.file_fortunes)
-        elif os.path.isfile(cfg.file_fortunes):
-            forune_path = cfg.file_fortunes
-        else:
-            return '...in bed.'  # Fortune file not found
-
-        # Retrieve a random line from a file, reading through the file once
-        # Prevents us from having to load the whole file in to memory
-        forune_file = open(forune_path)
-        lineNum = 0
-        while True:
-            aLine = forune_file.readline()
-            if not aLine:
-                break
-            if aLine[0] == '#' or aLine == '':
-                continue
-            lineNum = lineNum + 1
-            # How likely is it that this is the last line of the file?
-            if random.uniform(0, lineNum) < 1:
-                fortune = aLine.rstrip()
-        forune_file.close()
-        return fortune
-
-
     # Takes item name string (and optional enchants), outputs NBT compound
     # Convenience function for frames etc.
     def buildFrameItemTag(self,i,ench=(),customname=''):
@@ -156,7 +128,7 @@ class new:
     def buildItemTag(self,i):
         # If it's a binary NBT file, just load it
         if i.file != '':
-            item_tag = nbt.load(i.file)
+            item_tag = tagsfromfile(i.file)
             # Set the slot and count
             if i.slot != None:
                 item_tag['Slot'] = nbt.TAG_Byte(i.slot)
@@ -202,6 +174,9 @@ class new:
                     if i.flag == 'HIDE_PARTICLES' or i.flag == 'HIDE_ALL':
                         e_tag['ShowParticles'] = nbt.TAG_Byte(0)
                     elist.append(e_tag)
+                # If we have a flagparam, use it for the potion's colour
+                if i.flagparam != '':
+                    item_tag['tag']['CustomPotionColor'] = nbt.TAG_Int(i.flagparam)
             else:
                 item_tag['tag']['Potion'] = nbt.TAG_String(i.p_effect)
                 # For basic potions there is no need for a custom name
@@ -235,7 +210,7 @@ class new:
             if i.flag == 'FORTUNE':
                 item_tag['tag']['display'][
                     'Name'] = nbt.TAG_String('Fortune Cookie')
-                i.lore = self.loadrandfortune()
+                i.lore = random_line_from_file(cfg.file_fortunes, "...in bed")
                 loredata = textwrap.wrap(self.ConvertEscapeChars(i.lore), 30)
                 for loretext in loredata[:10]:
                     item_tag['tag']['display']['Lore'].append(
@@ -245,7 +220,7 @@ class new:
                 for loretext in loredata[:10]:
                     item_tag['tag']['display']['Lore'].append(
                         nbt.TAG_String(self.ConvertEscapeChars(loretext[:50])))
-        # Dyed
+        # Flag: Dyed item
         if (i.flag == 'DYED'):
             try:
                 item_tag['tag']
@@ -262,12 +237,12 @@ class new:
                         16777215))
             else:
                 item_tag['tag']['display']['color'] = nbt.TAG_Int(i.flagparam)
-        # special cases for written books and paintings
+        # Flags: Random Book or Painting
         elif (i.flag == 'WRITTEN'):
             item_tag = self.loadrandbooktext()
         elif (i.flag == 'PAINT'):
             item_tag = self.loadrandpainting()
-        # Tags for this dungeon's flag
+        # Flag: Paint banner or shield with dungeon flag design
         elif (i.flag == 'DUNGEON_FLAG'):
             try:
                 item_tag['tag']
@@ -281,13 +256,28 @@ class new:
                 q['Color'] = nbt.TAG_Int(p[0])
                 q['Pattern'] = nbt.TAG_String(p[1])
                 item_tag['tag']['BlockEntityTag']['Patterns'].append(q)
+            # Set the damage to match the base colour. This is a special case for
+            # banner items in chests
+            if i.id == 'minecraft:banner':
+                item_tag['Damage'] = nbt.TAG_Short(self.flag['Base'])
+        # Flag: Give item mob entity tag (spawn eggs)
         elif (i.flag.startswith('ENTITYTAG:')):
             try:
                 item_tag['tag']
             except:
                 item_tag['tag'] = nbt.TAG_Compound()
             item_tag['tag']['EntityTag'] = nbt.TAG_Compound()
-            item_tag['tag']['EntityTag']['id'] = nbt.TAG_String(i.flag.split(':')[1])
+            # ENTITYTAG: is 10 characters, we want everything afterwards
+            item_tag['tag']['EntityTag']['id'] = nbt.TAG_String(i.flag[10:])
+        # Flag: Give random recipie from recipes.txt
+        elif (i.flag == 'RECIPE'):
+            try:
+                item_tag['tag']
+            except:
+                item_tag['tag'] = nbt.TAG_Compound()
+            item_tag['tag']['Recipes'] = nbt.TAG_List()
+            r = random_line_from_file(cfg.file_recipes, "minecraft:crafting_table")
+            item_tag['tag']['Recipes'].append(nbt.TAG_String(r))
 
         # Set the slot and count
         if i.slot != None:

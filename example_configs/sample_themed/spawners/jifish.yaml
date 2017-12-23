@@ -1,0 +1,6 @@
+? ''
+: - SpawnData:
+    - id: minecraft:zombie
+    - Health: 16.0
+    - CustomName: JiFish
+

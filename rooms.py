@@ -797,9 +797,9 @@ class CellBlock(Basic2x2):
         note['tag']['title'] = nbt.TAG_String("Cell Combination")
         note['tag']['author'] = nbt.TAG_String("Unknown")
         note['tag']['pages'] = nbt.TAG_List()
-        words = '{text:"Level: ' + \
-            str(self.pos.y + 1) + "\n\n" + ctext1 + "\n" + ctext2 + '"}'
-        note['tag']['pages'].append(nbt.TAG_String(words))
+        words = 'Level: ' + \
+            str(self.pos.y + 1) + "\n\n" + ctext1 + "\n" + ctext2
+        note['tag']['pages'].append(nbt.TAG_String(encodeJSONtext(words)))
         max_lev = (self.c1.y // self.parent.room_height)
         self.parent.addplaceditem(note, max_lev=max_lev)
 
@@ -1417,7 +1417,7 @@ class SpiderLair(Basic):
                     self.parent.setblock(p.up(1), materials.Air)
                     self.parent.setblock(p.up(2), materials.Air)
                     self.parent.setblock(p.up(3), materials.Air)
-                    self.parent.addspawner(p, 'CaveSpider')
+                    self.parent.addspawner(p, 'cave_spider')
                     count += 1
 
         # Portal
@@ -2164,6 +2164,7 @@ class Crypt(Basic):
         # Random stuff to be buried with.
         lootc = [(items.byName('bone'), 10),
                  (items.byName('written book'), 10),
+                 (items.byName('knowledge book'), 10),
                  (items.byName('bow'), 10),
                  (items.byName('diamond'), 5),
                  (items.byName('gold ingot'), 5),
@@ -2249,7 +2250,7 @@ class Crypt(Basic):
             if random.randint(1, 100) >= 33:
                 continue
             self.parent.addspawner(o + p, random.choice(['Skeleton',
-                                                         'WitherSkeleton']))
+                                                         'wither_skeleton']))
             self.parent.setblock(o + p, materials.Spawner)
 
         # Dais
@@ -2347,6 +2348,720 @@ class Crypt(Basic):
                 webs[p] = True
         for p, q in webs.items():
             self.parent.setblock(p, materials.Cobweb)
+
+
+class IllagerLibrary(Basic):
+    _name = 'illagerlibrary'
+    _is_entrance = False
+    _is_stairwell = False
+    _is_treasureroom = True
+    _min_size = Vec(1, 1, 2)
+    _max_size = Vec(1, 1, 2)
+    size = Vec(1, 1, 2)
+
+    def placed(self):
+        self.canvas = (
+            Vec(0, self.parent.room_height - 2, 0),
+            Vec(0, self.parent.room_height - 2, 0),
+            Vec(0, self.parent.room_height - 2, 0))
+        rooms = []
+        sx = self.parent.room_size
+        sz = self.parent.room_size
+        #sy = self.parent.room_height
+        # This room contains no halls, but is connected to the South
+        # North, East, South, West
+        pos = self.pos
+        rooms.append(pos)
+        self.hallLength = [1, 1, 0, 1]
+        self.hallSize = [[6, sx - 6],
+                         [7, sx - 6],
+                         [6, sz - 6],
+                         [7, sz - 6]]
+        self.parent.halls[pos.x][pos.y][pos.z] = [0, 0, 1, 0]
+
+        # Place one room to the South
+        # This room has no halls, and is connected to the North
+        pos = self.pos + Vec(0, 0, 1)
+        room = new('blank', self.parent, pos)
+        rooms.extend(self.parent.setroom(pos, room))
+        room.hallLength = [0, 0, 0, 0]
+        room.hallSize = [[6, sx - 6],
+                         [6, sx - 6],
+                         [6, sz - 6],
+                         [6, sz - 6]]
+        room.parent.halls[pos.x][pos.y][pos.z] = [1, 1, 1, 1]
+        # This room cannot connect. Make the depth < 0
+        room.parent.maze[pos].depth = -1
+        return rooms
+
+    def render(self):
+        sx = 16
+        sy = 12
+        sz = 32
+        o = self.loc
+        pos = self.pos
+
+        # alias for setblock
+        sb = self.parent.setblock
+
+        # symmetrical setblock. A lot of this room will be symmetrical.
+        def ssb(p, mat, data=0):
+            sb(o + p, mat, data)
+            sb(Vec(o.x + sx - 1 - p.x, o.y + p.y, o.z + p.z), mat, data)
+
+        # Decoration colors
+        # rug color 1 (inner),
+        # rug color 2 (outer),
+        dmat = random.choice([
+            [
+                materials.RedCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.RedCarpet,
+                materials.LightGrayCarpet,
+            ],
+            [
+                materials.BlueCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.DarkGreenCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.DarkGreenCarpet,
+                materials.BlackCarpet,
+            ],
+            [
+                materials.PurpleCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.CyanCarpet,
+                materials.YellowCarpet,
+            ],
+            [
+                materials.LightBlueCarpet,
+                materials.LightGrayCarpet,
+            ]
+        ])
+
+        # Basic room
+        # Air space
+        for p in iterate_cube(o, o + Vec(sx - 1, sy - 1, sz - 1)):
+            sb(p, materials.Air)
+        # Walls
+        for p in iterate_four_walls(o, o + Vec(sx - 1, 0, sz - 1), -sy + 1):
+            sb(p, materials._wall)
+        # Ceiling and floor
+        for p in iterate_cube(o, o + Vec(sx - 1, 0, sz - 1)):
+            sb(p, materials._ceiling)
+            sb(p.down(sy - 1), materials._floor)
+
+        # Wooden balcony
+        for p in iterate_four_walls(Vec(3, 4, 3), Vec(12, 4, 28), 0):
+            sb(o + p, materials.OakWoodPlanks)
+        for p in iterate_four_walls(Vec(1, 4, 1), Vec(14, 4, 30), 0):
+            sb(o + p, materials.OakWoodSlab)
+        for p in iterate_four_walls(Vec(2, 4, 2), Vec(13, 4, 29), 0):
+            sb(o + p, materials.OakWoodSlab)
+        for p in iterate_four_walls(Vec(3, 3, 3), Vec(12, 3, 28), 0):
+            sb(o + p, materials.Fence)
+
+        # Entry stairs
+        for x in xrange(6):
+            ssb(Vec(7, 5 + x, 1 + x), materials.meta_mossycobble)
+            ssb(Vec(7, 5 + x, 2 + x), materials.meta_mossycobble)
+            ssb(Vec(7, 5 + x, 3 + x), materials.StoneStairs, 3)
+        for p in iterate_four_walls(Vec(7, 4, 1), Vec(8, 4, 4), 3):
+            sb(o + p, materials.Air)
+        # Extra stairs if there is a door to the North
+        if self.parent.halls[pos.x][pos.y][pos.z][0] == 1:
+            for p in iterate_cube(Vec(6, 4, 1), Vec(7, 4, 1)):
+                ssb(p, materials.StoneStairs, 3)
+
+        # Book Cases
+        # Cases along walls
+        for i in xrange(8):
+            j = i * 4
+            for p in iterate_cube(Vec(1, 1, 1 + j), Vec(1, 10, 3 + j)):
+                ssb(p, materials.Bookshelf)
+        # 50% of the cases along the walls have extensions
+        locations = set(
+        )
+        for i in xrange(8):
+            for j in xrange(2):
+                locations.add(Vec(2+j*8, 8, 2+i*4))
+        for i in xrange(len(locations)/2):
+            j = random.choice(list(locations))
+            locations.remove(j)
+            for p in iterate_cube(j, j+Vec(3, 2, 0)):
+                sb(o+p, materials.Bookshelf)
+
+        # Ladders
+        for i in xrange(1, 8, 2):
+            j = i * 4
+            for p in iterate_cube(Vec(1, 1, j), Vec(1, 10, j)):
+                sb(o + p, materials.Ladder, 5)
+                sb(o + p.e(13), materials.Ladder, 4)
+
+        # Rugs
+        for p in iterate_cube(Vec(6, 10, 10), Vec(9, 10, 17)):
+            sb(o + p, dmat[0])
+            sb(o + p.s(9), dmat[0])
+        for p in iterate_cube(Vec(7, 10, 11), Vec(8, 10, 16)):
+            sb(o + p, dmat[1])
+            sb(o + p.s(9), dmat[1])
+        for x in xrange(20):
+            p = Vec(random.randint(6, 9), 10, random.randint(9, 29))
+            sb(o + p, materials.Air)
+            sb(o + p.down(1), materials._floor)
+
+        # Spawners
+        for p in [Vec(6, 10, 30), Vec(9, 10, 30)]:
+            self.parent.addspawner(o + p, 'vindication_illager')
+            self.parent.setblock(o + p, materials.Spawner)
+
+        # Evoker
+        tags = get_entity_mob_tags(
+            'evocation_illager',
+            Pos=o+Vec(7, 10, 20),
+            PersistenceRequired=1,
+            CanPickUpLoot=1
+        )
+        self.parent.addentity(tags)
+
+        # Chest. Maxtier plus a level zero.
+        sb(o + Vec(7, 10, 30), materials.Chest)
+        self.parent.addchest(o + Vec(7, 10, 30), loottable._maxtier)
+        sb(o + Vec(8, 10, 30), materials.Chest)
+        if cfg.double_treasure:
+            self.parent.addchest(o + Vec(8, 10, 30), loottable._maxtier)
+        else:
+            self.parent.addchest(o + Vec(8, 10, 30), 0)
+
+        # Portal
+        drawExitPortal(o + Vec(6, 7, 1), self.parent)
+
+        # Cobwebs
+        webs = {}
+        for p in iterate_cube(o.down(1), o.trans(15, 4, 31)):
+            count = 0
+            perc = 90 - (p.y - self.loc.down(1).y) * (70 / 3)
+            if (p not in self.parent.blocks or
+                    self.parent.blocks[p].material != materials.Air):
+                continue
+            for q in (Vec(1, 0, 0), Vec(-1, 0, 0),
+                      Vec(0, 1, 0), Vec(0, -1, 0),
+                      Vec(0, 0, 1), Vec(0, 0, -1)):
+                if (p + q in self.parent.blocks and
+                        self.parent.blocks[p + q].material != materials.Air and
+                        random.randint(1, 100) <= perc):
+                    count += 1
+            if count >= 3:
+                webs[p] = True
+        for p, q in webs.items():
+            self.parent.setblock(p, materials.Cobweb)
+
+        # A little light
+        sb(o+Vec(1, 5, 6), materials.SeaLantern)
+        sb(o+Vec(1, 5, 14), materials.SeaLantern)
+        sb(o+Vec(14, 5, 6), materials.SeaLantern)
+        sb(o+Vec(14, 5, 14), materials.SeaLantern)
+
+
+class DiamondCavern(Blank):
+    _name = 'diamondcavern'
+    _is_entrance = False
+    _is_stairwell = False
+    _is_treasureroom = True
+    _min_size = Vec(2, 1, 2)
+    _max_size = Vec(2, 1, 2)
+    size = Vec(2, 1, 2)
+
+    def placed(self):
+        rooms = []
+        sx = self.parent.room_size
+        sz = self.parent.room_size
+        #sy = self.parent.room_height
+        # Fix our halls so they only show N and W sides
+        # West, South, East, North
+        pos = self.pos
+        rooms.append(pos)
+        self.hallLength = [1, 0, 0, 1]
+        self.hallSize = [[6, sx - 6],
+                         [6, sx - 6],
+                         [6, sz - 6],
+                         [6, sz - 6]]
+        self.parent.halls[pos.x][pos.y][pos.z][1] = 1
+        self.parent.halls[pos.x][pos.y][pos.z][2] = 1
+        # place three more blank rooms to hold the hallways
+        # This is the Southern room
+        pos = self.pos + Vec(1, 0, 0)
+        room = new('cblank', self.parent, pos)
+        rooms.extend(self.parent.setroom(pos, room))
+        room.hallLength = [1, 1, 0, 0]
+        room.hallSize = [[6, sx - 6],
+                         [6, sx - 6],
+                         [6, sz - 6],
+                         [6, sz - 6]]
+        room.parent.halls[pos.x][pos.y][pos.z][2] = 1
+        room.parent.halls[pos.x][pos.y][pos.z][3] = 1
+
+        # Eastern room.
+        pos = self.pos + Vec(0, 0, 1)
+        room = new('cblank', self.parent, pos)
+        rooms.extend(self.parent.setroom(pos, room))
+        room.hallLength = [0, 0, 1, 1]
+        room.hallSize = [[6, sx - 6],
+                         [6, sx - 6],
+                         [6, sz - 6],
+                         [6, sz - 6]]
+        room.parent.halls[pos.x][pos.y][pos.z][0] = 1
+        room.parent.halls[pos.x][pos.y][pos.z][1] = 1
+        # South East room.
+        pos = self.pos + Vec(1, 0, 1)
+        room = new('cblank', self.parent, pos)
+        rooms.extend(self.parent.setroom(pos, room))
+        room.hallLength = [0, 1, 1, 0]
+        room.hallSize = [[6, sx - 6],
+                         [6, sx - 6],
+                         [6, sz - 6],
+                         [6, sz - 6]]
+        room.parent.halls[pos.x][pos.y][pos.z][0] = 1
+        room.parent.halls[pos.x][pos.y][pos.z][3] = 1
+
+        self.sx = self.size.x * self.parent.room_size
+        self.sz = self.size.z * self.parent.room_size
+        self.sy = self.size.y * self.parent.room_height
+
+        return rooms
+
+    def placeCavernHalls(self, cave):
+        ''' Used when rendering to set exit zones for the cave factory'''
+        # NE room
+        room_ne = self.parent.rooms[self.pos + Vec(0, 0, 1)]
+        # SE room
+        room_se = self.parent.rooms[self.pos + Vec(1, 0, 1)]
+        # SW room
+        room_sw = self.parent.rooms[self.pos + Vec(1, 0, 0)]
+
+        # We want to remember all of the entry blocks for future use
+        self.entrances = set()
+
+        # North side
+        if (self.halls[0].size > 0):
+            cave.add_exit(
+                (
+                    0,
+                    self.halls[0].offset
+                ),
+                (
+                    0,
+                    self.halls[0].offset + self.halls[0].size
+                )
+            )
+            # Note entrance
+            for p in xrange(self.halls[0].size):
+                self.entrances.add(
+                    (
+                        self.halls[0].offset+p,
+                        0
+                    )
+                )
+        if (room_sw.halls[0].size > 0):
+            cave.add_exit(
+                (
+                    0,
+                    16 + room_sw.halls[0].offset
+                ),
+                (
+                    0,
+                    16 + room_sw.halls[0].offset + room_sw.halls[0].size
+                )
+            )
+            # Note entrance
+            for p in xrange(room_sw.halls[0].size):
+                self.entrances.add(
+                    (
+                        16 + room_sw.halls[0].offset + p,
+                        0
+                    )
+                )
+        # East side
+        if (room_se.halls[1].size > 0):
+            cave.add_exit(
+                (
+                    16 + room_se.halls[1].offset,
+                    self.sz - 1
+                ),
+                (
+                    16 + room_se.halls[1].offset + room_se.halls[1].size,
+                    self.sz - 1
+                )
+            )
+            # Note entrance
+            for p in xrange(room_se.halls[1].size):
+                self.entrances.add(
+                    (
+                        self.sz - 1,
+                        16 + room_se.halls[1].offset + p
+                    )
+                )
+        if (room_sw.halls[1].size > 0):
+            cave.add_exit(
+                (
+                    room_sw.halls[1].offset,
+                    self.sz - 1
+                ),
+                (
+                    room_sw.halls[1].offset + room_sw.halls[1].size,
+                    self.sz - 1
+                )
+            )
+            # Note entrance
+            for p in xrange(room_sw.halls[1].size):
+                self.entrances.add(
+                    (
+                        self.sz - 1,
+                        room_sw.halls[1].offset + p
+                    )
+                )
+        # South side
+        if (room_ne.halls[2].size > 0):
+            cave.add_exit(
+                (
+                    self.sx - 1,
+                    room_ne.halls[2].offset
+                ),
+                (
+                    self.sx - 1,
+                    room_ne.halls[2].offset + room_ne.halls[2].size
+                )
+            )
+            # Note entrance
+            for p in xrange(room_ne.halls[2].size):
+                self.entrances.add(
+                    (
+                        room_ne.halls[2].offset + p,
+                        self.sx - 1
+                    )
+                )
+        if (room_se.halls[2].size > 0):
+            cave.add_exit(
+                (
+                    self.sx - 1,
+                    16 + room_se.halls[2].offset
+                ),
+                (
+                    self.sx - 1,
+                    16 + room_se.halls[2].offset + room_se.halls[2].size
+                )
+            )
+            # Note entrance
+            for p in xrange(room_se.halls[2].size):
+                self.entrances.add(
+                    (
+                        16 + room_se.halls[2].offset + p,
+                        self.sx-1
+                    )
+                )
+        # West side
+        if (self.halls[3].size > 0):
+            cave.add_exit(
+                (
+                    self.halls[3].offset,
+                    0
+                ),
+                (
+                    self.halls[3].offset + self.halls[3].size,
+                    0
+                )
+            )
+            # Note entrance
+            for p in xrange(self.halls[3].size):
+                self.entrances.add(
+                    (
+                        0,
+                        self.halls[3].offset + p
+                    )
+                )
+        if (room_ne.halls[3].size > 0):
+            cave.add_exit(
+                (
+                    16 + room_ne.halls[3].offset,
+                    0
+                ),
+                (
+                    16 + room_ne.halls[3].offset + room_ne.halls[3].size,
+                    0
+                )
+            )
+            # Note entrance
+            for p in xrange(room_ne.halls[3].size):
+                self.entrances.add(
+                    (
+                        0,
+                        16 + room_ne.halls[3].offset + p
+                    )
+                )
+
+    def render(self):
+        sx = 32
+        sy = 12
+        sz = 32
+        cave = cave_factory.new(sx, sz)
+
+        # Layer in the halls
+        self.placeCavernHalls(cave)
+
+        # Generate the cave
+        cave.gen_map(mode='room')
+
+        # setblock alias
+        def sb(
+            pos,
+            mat,
+            data=0,
+            hide=False,
+            lock=False,
+            soft=False,
+            blank=False
+        ):
+            self.parent.setblock(
+                self.loc + pos,
+                mat,
+                data=data,
+                hide=hide,
+                lock=lock,
+                soft=soft,
+                blank=blank
+            )
+
+        # Air space, Floor, and Ceiling
+        for p in cave.iterate_map(cave_factory.FLOOR):
+            q = Vec(p[0], 0, p[1])
+            sb(q, materials.StoneMonsterEgg, hide=True)
+            for i in xrange(sy-2):
+                sb(q.down(i+1), materials.Air)
+            sb(q.down(sy-1), materials.StoneMonsterEgg)
+        # Walls
+        for p in cave.iterate_walls():
+            q = Vec(p[0], 0, p[1])
+            for i in xrange(sy):
+                sb(q.down(i), materials.StoneMonsterEgg)
+
+        # Slope walls
+        cave.grow_map()
+        for p in cave.iterate_map(cave_factory.WALL):
+            q = Vec(p[0], 0, p[1])
+            sb(q.down(1), materials.StoneMonsterEgg)
+            sb(q.down(sy-3), materials.StoneMonsterEgg)
+        cave.grow_map()
+        cave.grow_map()
+        for p in cave.iterate_map(cave_factory.WALL):
+            q = Vec(p[0], 0, p[1])
+            sb(q.down(sy-2), materials.StoneMonsterEgg)
+
+        # Draw slopes down from any entrances
+        for y in xrange(sy):
+            for p in self.entrances:
+                p1 = Vec(p[0]-y, y+4, p[1]-y)
+                p2 = Vec(p[0]+y, y+4, p[1]+y)
+                for q in iterate_disc(p1, p2):
+                    sb(q, materials.StoneMonsterEgg)
+
+        # Create diamond and emerald veins
+        pn = perlin.SimplexNoise(256)
+        for p in iterate_cube(Vec(0, 0, 0), Vec(sx, sy, sz)):
+            if self.parent.getblock(self.loc + p) is materials.StoneMonsterEgg:
+                n = pn.noise3(p.x / 4.0, p.y / 4.0, p.z / 4.0)
+                if n < -0.87:
+                    sb(p, materials.EmeraldOre)
+                elif n> 0.87:
+                    sb(p, materials.DiamondOre)
+
+        # Find the floor area
+        floor = set()
+        for p in iterate_cube(Vec(0, sy-2, 0), Vec(sx, sy-2, sz)):
+            if self.parent.getblock(self.loc + p) is materials.Air:
+                floor.add(p)
+
+        # Rabbit of Caerbannog
+        p = random.choice(list(floor))
+        floor.discard(p)
+        self.parent.addentity(
+            get_entity_mob_tags(
+                'rabbit',
+                Pos=self.loc + p,
+                RabbitType=99,
+                PersistenceRequired=1,
+                CustomName='Rabbit of Caerbannog',
+                CustomNameVisible=True
+            )
+        )
+
+        # We'll need this
+        tag = self.parent.inventory.buildFrameItemTag(
+            'magic_holy hand grenade of antioch'
+        )
+        self.parent.addplaceditem(
+            tag,
+            max_lev=0
+        )
+
+        # A dead prospector
+        supply_items = [
+            (items.byName('charcoal'), .8, 10),
+            (items.byName('coal'), .8, 10),
+            (items.byName('stick'), .8, 20),
+            (items.byName('iron ore'), .3, 5),
+            (items.byName('gold ore'), .1, 1),
+            (items.byName('iron pickaxe'), .3, 1),
+            (items.byName('stone pickaxe'), 1.0, 1),
+        ]
+        supplyloot = []
+        for s in supply_items:
+            if (random.random() < s[1]):
+                amount = random.randint(1, min(s[2], s[0].maxstack))
+                supplyloot.append
+                (
+                    loottable.Loot
+                    (
+                        len(supplyloot),
+                        amount,
+                        s[0].value,
+                        s[0].data,
+                        '',
+                        flag=s[0].flag
+                    )
+                )
+        p = random.choice(list(floor))
+        floor.discard(p)
+        sb(p, materials.Chest)
+        self.parent.addchest(self.loc + p, loot=supplyloot)
+
+        words="I've found the mother lode. I cannot believe my luck! I will be a very rich man when I return to Castle Aaaaarrrrrrggghhh...."
+        note = nbt.TAG_Compound()
+        note['id'] = nbt.TAG_String(items.byName("written book").id)
+        note['Damage'] = nbt.TAG_Short(0)
+        note['Count'] = nbt.TAG_Byte(1)
+        note['tag'] = nbt.TAG_Compound()
+        note['tag']['title'] = nbt.TAG_String("A blood-stained page")
+        note['tag']['author'] = nbt.TAG_String("Unknown")
+        note['tag']['pages'] = nbt.TAG_List()
+        note['tag']['pages'].append(nbt.TAG_String(encodeJSONtext(words)))
+        self.parent.addchestitem_tag(self.loc + p, note)
+
+
+class DeepOnes(Basic):
+    _name = 'deepones'
+    _is_entrance = False
+    _is_stairwell = False
+    _is_treasureroom = True
+    _min_size = Vec(1, 1, 2)
+    _max_size = Vec(1, 1, 2)
+    size = Vec(1, 1, 2)
+
+    def placed(self):
+        self.canvas = (
+            Vec(0, self.parent.room_height - 2, 0),
+            Vec(0, self.parent.room_height - 2, 0),
+            Vec(0, self.parent.room_height - 2, 0))
+        rooms = []
+        sx = self.parent.room_size
+        sz = self.parent.room_size
+        #sy = self.parent.room_height
+        # This room contains no halls, but is connected to the South
+        # North, East, South, West
+        pos = self.pos
+        rooms.append(pos)
+        self.hallLength = [1, 1, 0, 1]
+        self.hallSize = [[6, sx - 6],
+                         [7, sx - 6],
+                         [6, sz - 6],
+                         [7, sz - 6]]
+        self.parent.halls[pos.x][pos.y][pos.z] = [0, 0, 1, 0]
+
+        # Place one room to the South
+        # This room has no halls, and is connected to the North
+        pos = self.pos + Vec(0, 0, 1)
+        room = new('blank', self.parent, pos)
+        rooms.extend(self.parent.setroom(pos, room))
+        room.hallLength = [0, 0, 0, 0]
+        room.hallSize = [[6, sx - 6],
+                         [6, sx - 6],
+                         [6, sz - 6],
+                         [6, sz - 6]]
+        room.parent.halls[pos.x][pos.y][pos.z] = [1, 1, 1, 1]
+        # This room cannot connect. Make the depth < 0
+        room.parent.maze[pos].depth = -1
+        return rooms
+
+    def render(self):
+        sx = 16
+        sy = 12
+        sz = 32
+        o = self.loc
+        pos = self.pos
+
+        # alias for setblock
+        sb = self.parent.setblock
+
+        # symmetrical setblock. A lot of this room will be symmetrical.
+        def ssb(p, mat, data=0):
+            sb(o + p, mat, data)
+            sb(Vec(o.x + sx - 1 - p.x, o.y + p.y, o.z + p.z), mat, data)
+
+        # Basic room
+        # Water space
+        for p in iterate_cube(o, o + Vec(sx - 1, sy - 1, sz - 1)):
+            sb(p, materials.StillWater)
+        # Air space
+        for p in iterate_cube(o, o + Vec(sx - 1, sy - 8, sz - 22)):
+            sb(p, materials.Air)
+        # Walls
+        for p in iterate_four_walls(o, o + Vec(sx - 1, 0, sz - 1), -sy + 1):
+            sb(p, materials.meta_decoratedprismarine)
+        # Ceiling and floor
+        for p in iterate_cube(o, o + Vec(sx - 1, 0, sz - 1)):
+            sb(p, materials.meta_decoratedprismarine)
+            sb(p.down(sy - 1), materials.meta_decoratedprismarine)
+            if random.randint(1, 100) <= 3:
+                sb(p.down(sy - 1), materials.SeaLantern)
+
+        # Platform
+        for x in iterate_cube(Vec(0, 4, 0), Vec(16, 4, 10)):
+            sb(o+x, materials.PrismarineBricks)
+
+        # Columns
+        for x in iterate_cube(Vec(1, 1, 1), Vec(1, 3, 1)):
+            for z in (0, 2, 4, 6, 8):
+                sb(o+x+Vec( 0, 0, z), materials.MossStoneWall)
+                sb(o+x+Vec(13, 0, z), materials.MossStoneWall)
+
+        # Pool
+        for x in iterate_disc(Vec(5, 4, 3), Vec(10, 4, 7)):
+            sb(o+x.n(1), materials.DarkPrismarine)
+            sb(o+x.s(1), materials.DarkPrismarine)
+            sb(o+x.e(1), materials.DarkPrismarine)
+            sb(o+x.w(1), materials.DarkPrismarine)
+        for x in iterate_disc(Vec(5, 4, 3), Vec(10, 4, 7)):
+            sb(o+x, materials.StillWater)
+
+        # Glass
+        for x in iterate_cube(Vec(1, 1, 10), Vec(14, 3, 10)):
+            sb(o+x, materials.Glass)
+
+        # Portal
+        drawExitPortal(o + Vec(6, 7, 1), self.parent)
+
+        # A little light
+        sb(o+Vec(1, 4, 1), materials.SeaLantern)
+        sb(o+Vec(14, 4, 1), materials.SeaLantern)
+        sb(o+Vec(1, 4, 9), materials.SeaLantern)
+        sb(o+Vec(14, 4, 9), materials.SeaLantern)
 
 
 class SandstoneCavern(Blank):
@@ -2940,6 +3655,66 @@ class Pit(Blank):
             for x in self.floor_func(self.c1.trans(0, 1, 0),
                                      self.c3.trans(0, 1, 0)):
                 self.parent.setblock(x, materials.Lava)
+
+            # For lava floors, make little ledges at entrances to help ensure
+            # these can be traversed without building.
+            b = set()
+            y = self.canvasHeight() + 1
+            for h in xrange(4):
+                if (self.halls[h].size > 0):
+                    for x in xrange(1, self.halls[h].size - 1):
+                        if h == 0:
+                            b.add (
+                                Vec(
+                                    self.halls[h].offset + x,
+                                    y,
+                                    self.hallLength[h]
+                                )
+                            )
+                        elif h == 1:
+                            b.add (
+                                Vec(
+                                    (self.parent.room_size - self.hallLength[h] - 1),
+                                    y,
+                                    self.halls[h].offset + x
+                                )
+                            )
+                        elif h == 2:
+                            b.add (
+                                Vec(
+                                    self.halls[h].offset + x,
+                                    y,
+                                    (self.parent.room_size - self.hallLength[h] - 1)
+                                )
+                            )
+                        elif h == 3:
+                            b.add (
+                                Vec(
+                                    self.hallLength[h],
+                                    y,
+                                    self.halls[h].offset + x
+                                )
+                            )
+            for x in b:
+                x += self.loc
+                self.parent.setblock(x.up(1), materials.CobblestoneSlab)
+                if (self.parent.getblock(x.trans(1, 0, 0)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(1, 0, 0),
+                                         materials.meta_mossycobble)
+                if (self.parent.getblock(x.trans(-1, 0, 0)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(-1, 0, 0),
+                                         materials.meta_mossycobble)
+                if (self.parent.getblock(x.trans(0, 0, 1)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(0, 0, 1),
+                                         materials.meta_mossycobble)
+                if (self.parent.getblock(x.trans(0, 0, -1)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(0, 0, -1),
+                                         materials.meta_mossycobble)
+
             r = random.randint(1, 1000)
             for x in self.floor_func(self.c1.trans(0, 1, 0),
                                      self.c3.trans(0, 1, 0)):
@@ -2964,6 +3739,7 @@ class Pit(Blank):
                                              materials.meta_mossycobble)
                 if (n < 0.2):
                     self.parent.setblock(x, materials.Air)
+
         # Ceiling
         for x in self.ceil_func(self.c1.up(4), self.c3.up(4)):
             self.parent.setblock(x, materials._ceiling)
@@ -3186,6 +3962,66 @@ class PitBottom(Blank):
             for x in self.floor_func(self.c1.trans(0, 1, 0),
                                      self.c3.trans(0, 1, 0)):
                 self.parent.setblock(x, materials.Lava)
+
+            # For lava floors, make little ledges at entrances to help ensure
+            # these can be traversed without building.
+            b = set()
+            y = self.canvasHeight() + 1
+            for h in xrange(4):
+                if (self.halls[h].size > 0):
+                    for x in xrange(1, self.halls[h].size - 1):
+                        if h == 0:
+                            b.add (
+                                Vec(
+                                    self.halls[h].offset + x,
+                                    y,
+                                    self.hallLength[h]
+                                )
+                            )
+                        elif h == 1:
+                            b.add (
+                                Vec(
+                                    (self.parent.room_size - self.hallLength[h] - 1),
+                                    y,
+                                    self.halls[h].offset + x
+                                )
+                            )
+                        elif h == 2:
+                            b.add (
+                                Vec(
+                                    self.halls[h].offset + x,
+                                    y,
+                                    (self.parent.room_size - self.hallLength[h] - 1)
+                                )
+                            )
+                        elif h == 3:
+                            b.add (
+                                Vec(
+                                    self.hallLength[h],
+                                    y,
+                                    self.halls[h].offset + x
+                                )
+                            )
+            for x in b:
+                x += self.loc
+                self.parent.setblock(x.up(1), materials.CobblestoneSlab)
+                if (self.parent.getblock(x.trans(1, 0, 0)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(1, 0, 0),
+                                         materials.meta_mossycobble)
+                if (self.parent.getblock(x.trans(-1, 0, 0)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(-1, 0, 0),
+                                         materials.meta_mossycobble)
+                if (self.parent.getblock(x.trans(0, 0, 1)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(0, 0, 1),
+                                         materials.meta_mossycobble)
+                if (self.parent.getblock(x.trans(0, 0, -1)) is
+                        materials.Lava):
+                    self.parent.setblock(x.trans(0, 0, -1),
+                                         materials.meta_mossycobble)
+
             r = random.randint(1, 1000)
             for x in self.floor_func(self.c1.trans(0, 1, 0),
                                      self.c3.trans(0, 1, 0)):
@@ -3210,6 +4046,7 @@ class PitBottom(Blank):
                                              materials.meta_mossycobble)
                 if (n < 0.2):
                     self.parent.setblock(x, materials.Air)
+
         # Cactus (spike trap)
         elif (self.floor == 'cactus'):
             for x in self.floor_func(self.c1.trans(0, 0, 0),
@@ -3432,11 +4269,15 @@ def drawExitPortal(pos, dungeon, NS=False):
         y = Vec(0, 1, 0)
         z = Vec(1, 0, 0)
         sign_dat = 5
+        button_dat = 1
+        portal_pos = '~ ~1 ~-1 ~ ~3 ~-2'
     else:
         x = Vec(1, 0, 0)
         y = Vec(0, 1, 0)
         z = Vec(0, 0, 1)
         sign_dat = 3
+        button_dat = 3
+        portal_pos = '~-1 ~1 ~ ~-2 ~3 ~'
     # Portal
     sb = dungeon.setblock
     # Bedrock portal frame.
@@ -3445,36 +4286,35 @@ def drawExitPortal(pos, dungeon, NS=False):
     # Air.
     for p in iterate_cube(pos + x + y, pos + x * 2 + y * 3):
         sb(p, materials.Air)
-    # Buttons
-    for p in iterate_cube(pos + x + y * 3, pos + x * 2 + y * 3):
-        sb(p, materials.StonePressurePlate)
+    # Button
+    sb(pos + x * 3 + y * 3 + z, materials.WoodenButton, button_dat)
     # Command blocks
     world_exit = Vec(
         dungeon.dinfo['portal_exit'].x + dungeon.position.x,
         dungeon.position.y - dungeon.dinfo['portal_exit'].y,
         dungeon.dinfo['portal_exit'].z + dungeon.position.z
     )
-    for p in [pos + y * 4, pos + x * 3 + y * 4]:
-        sb(p, materials.CommandBlock)
-        root_tag = nbt.TAG_Compound()
-        root_tag['id'] = nbt.TAG_String('Control')
-        root_tag['x'] = nbt.TAG_Int(p.x)
-        root_tag['y'] = nbt.TAG_Int(p.y)
-        root_tag['z'] = nbt.TAG_Int(p.z)
-        root_tag['SuccessCount'] = nbt.TAG_Int(0)
-        root_tag['Command'] = nbt.TAG_String(
-            '/tp @p[rm=1,r=2,c=1] %d %d %d' %
-            (world_exit.x, world_exit.y, world_exit.z))
+    p = pos + x * 3 + y * 4
+    sb(p, materials.CommandBlock)
+    root_tag = nbt.TAG_Compound()
+    root_tag['id'] = nbt.TAG_String('command_block')
+    root_tag['x'] = nbt.TAG_Int(p.x)
+    root_tag['y'] = nbt.TAG_Int(p.y)
+    root_tag['z'] = nbt.TAG_Int(p.z)
+    root_tag['SuccessCount'] = nbt.TAG_Int(0)
+    root_tag['Command'] = nbt.TAG_String(
+        '/fill '+portal_pos+' minecraft:end_gateway 0 replace {Age:201,ExactTeleport:1,ExitPortal:{X:%d,Y:%d,Z:%d}}' %
+        (world_exit.x, world_exit.y, world_exit.z))
 
-        dungeon.tile_ents[p] = root_tag
+    dungeon.tile_ents[p] = root_tag
 
     # Sign.
     sb(pos + x * 3 + y * 2 + z, materials.WallSign, sign_dat)
     dungeon.addsign(pos + x * 3 + y * 2 + z,
-                    'Portal',
-                    'to the',
-                    'Surface',
-                    '')
+                    'Portal to',
+                    'the Surface',
+                    '',
+                    'Press Button')
 
 # Catalog the rooms we know about.
 _rooms = {}

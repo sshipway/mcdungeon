@@ -5,7 +5,7 @@
 # =======
 #
 # The format for potions with multiple effects is:
-# <name>,<effect id>-<level>-<duration>,<effect id>-<level>-<duration>...<,flag (optional)>
+# <name>,<effect id>-<level>-<duration>,<effect id>-<level>-<duration>...<,flag (optional)><,color (optional)>
 # 
 # The format for 'basic' potions with only one effect is:
 # <name>,<effect name><,flag (optional)>
@@ -24,6 +24,9 @@
 # in-game, HIDE_PARTICLES to hide the player particles after drinking, or
 # HIDE_ALL to hide both. HIDE_PARTICLES does not work with 'basic' potions.
 #
+# The color can be omitted. Otherwise use a hex color code that will determine
+# the color of the potion/arrow etc.
+#
 # For each entry in this file, FOUR items will be created that can be
 # referenced in loot tables. 1) The potion itself, 2) The splash version of
 # the potion, prefixed by 'splash', 3) The tipped arrow version, with the
@@ -34,7 +37,7 @@
 #  - Lingering Potion of XXX
 #
 # Examples:
-Potion of Wonder,8-0-1200,12-1-2400,3-2-600,HIDE_EFFECTS
+Potion of Wonder,8-0-1200,12-1-2400,3-2-600,HIDE_EFFECTS,28C3CC
 Potion of Raw Chaos,8206,7-22-1
 
 # Basic potions that are normally unobtainable
@@ -65,9 +68,17 @@ Potion of Glowing II,24-0-3600
 Potion of Levitation II,25-1-50
 
 # Booze
-Bottle of Ale,9-0-600,HIDE_PARTICLES
-Bottle of Mulled Wine,9-0-300,2-0-300,21-0-1200,3-0-1200,HIDE_ALL
-Bottle of Absinthe,9-0-300,15-0-300,2-1-300,5-2-500,HIDE_ALL
+Bottle of Egg Nog,9-0-150,23-1-1,11-0-300,HIDE_ALL,FFFFFF
+Bottle of Cider,9-0-200,23-1-1,11-0-400,HIDE_ALL,FEC504
+Bottle of Mulled Wine,9-0-250,23-1-1,11-0-500,HIDE_ALL,4B031B
+Bottle of Mead,9-0-300,23-1-1,11-0-600,HIDE_ALL,BC7002
+Bottle of Dwarven Ale,9-0-350,23-1-1,11-0-700,HIDE_ALL,9F7845
+Bottle of Vintage Wine,9-0-400,23-1-1,11-0-800,HIDE_ALL,BE5858
+Bottle of Whisky,9-0-450,23-1-1,11-0-900,HIDE_ALL,FFA320
+Bottle of Grog,9-0-500,23-1-1,11-0-1000,15-0-60,HIDE_ALL,9CB204
+Bottle of Elven Brew,9-0-550,23-1-1,11-0-1100,15-0-80,HIDE_ALL,0000FF
+Bottle of Absinthe,9-0-600,23-1-1,11-0-1200,15-0-100,HIDE_ALL,00CC00
+
 
 # Basic Potions
 Mundane Potion,minecraft:mundane

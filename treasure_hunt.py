@@ -16,8 +16,6 @@ import inventory
 from utils import *
 from disjoint_set import DisjointSet
 from pymclevel import nbt
-from overviewer_core import cache
-from overviewer_core import world as ov_world
 
 from dungeon import Dungeon, RelightHandler, Block
 
@@ -35,16 +33,12 @@ class TreasureHunt (Dungeon):
     def __init__(self,
                  args,
                  world,
-                 oworld,
                  chunk_cache,
                  thunt_cache,
                  good_chunks,
                  mapstore):
-        self.caches = []
-        self.caches.append(cache.LRUCache(size=100))
 
         self.world = world
-        self.oworld = oworld
         self.chunk_cache = chunk_cache
         self.thunt_cache = thunt_cache
         self.good_chunks = good_chunks
@@ -157,8 +151,7 @@ class TreasureHunt (Dungeon):
             )
             # we need the info if making multiple hunts, to avoid
             # all previous landmarks
-            #self.thunt_cache[key] = self.tile_ents[Vec(0, 0, 0)]
-            self.thunt_cache[key] = True
+            self.thunt_cache[key] = encodeTHuntInfo(self, version)
 
             # copy results to the world
             self.applychanges()
@@ -452,7 +445,7 @@ class TreasureHunt (Dungeon):
             cluebook_tag['author'] = nbt.TAG_String(self.owner)
             cluebook_tag['pages'] = nbt.TAG_List()
             for p in pages:
-                cluebook_tag['pages'].append( nbt.TAG_String('"%s"' % (p)) )
+                cluebook_tag['pages'].append(nbt.TAG_String(encodeJSONtext(p)))
             cluebook = nbt.TAG_Compound()
             cluebook['Count'] = nbt.TAG_Byte(1)
             cluebook['id'] = nbt.TAG_String('minecraft:written_book')
@@ -486,7 +479,7 @@ class TreasureHunt (Dungeon):
         cluebook_tag['author'] = nbt.TAG_String(self.owner)
         cluebook_tag['pages'] = nbt.TAG_List()
         for p in pages:
-            cluebook_tag['pages'].append( nbt.TAG_String('"%s"' % (p)) )
+            cluebook_tag['pages'].append(nbt.TAG_String(encodeJSONtext(p)))
         cluebook = nbt.TAG_Compound()
         cluebook['Count'] = nbt.TAG_Byte(1)
         cluebook['id'] = nbt.TAG_String('minecraft:written_book')
@@ -516,47 +509,9 @@ class TreasureHunt (Dungeon):
             loc = lm.offset + loc
             self.setblock(loc, materials.Spawner)
             entity = weighted_choice(cfg.master_landmark_mobs)
-            root_tag = self.getspawnertags(entity)
-            root_tag['id'] = nbt.TAG_String('MobSpawner')
-            root_tag['x'] = nbt.TAG_Int(loc.x )
-            root_tag['y'] = nbt.TAG_Int(loc.y )
-            root_tag['z'] = nbt.TAG_Int(loc.z )
-            root_tag['Delay'] = nbt.TAG_Short(0)
-            SpawnCount = cfg.SpawnCount
-            SpawnMaxNearbyEntities = cfg.SpawnMaxNearbyEntities
-            SpawnMinDelay = cfg.SpawnMinDelay
-            SpawnMaxDelay = cfg.SpawnMaxDelay
-            SpawnRequiredPlayerRange = cfg.SpawnRequiredPlayerRange
-            # But don't overwrite tags from NBT files
-            if (SpawnCount != 0):
-                try:
-                    root_tag['SpawnCount']
-                except:
-                    root_tag['SpawnCount'] = nbt.TAG_Short(SpawnCount)
-            if (SpawnMaxNearbyEntities != 0):
-                try:
-                    root_tag['MaxNearbyEntities']
-                except:
-                    root_tag['MaxNearbyEntities'] = nbt.TAG_Short(
-                        SpawnMaxNearbyEntities)
-            if (SpawnMinDelay != 0):
-                try:
-                    root_tag['MinSpawnDelay']
-                except:
-                    root_tag['MinSpawnDelay'] = nbt.TAG_Short(SpawnMinDelay)
-            if (SpawnMaxDelay != 0):
-                try:
-                    root_tag['MaxSpawnDelay']
-                except:
-                    root_tag['MaxSpawnDelay'] = nbt.TAG_Short(SpawnMaxDelay)
-            if (SpawnRequiredPlayerRange != 0):
-                try:
-                    root_tag['RequiredPlayerRange']
-                except:
-                    root_tag['RequiredPlayerRange'] = nbt.TAG_Short(
-                        SpawnRequiredPlayerRange)
-            # Finally give the tag to the entity
+            root_tag = self.getspawnertags(entity, tier=1, loc=loc)
             self.tile_ents[loc] = root_tag
+            print root_tag
         self.pm.set_complete()
 
     def renderlandmarks(self):

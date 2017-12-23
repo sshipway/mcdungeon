@@ -32,16 +32,16 @@ double_treasure = 'False'
 enchant_system = 'table+book'
 spawners = '2'
 hidden_spawners = 'False'
-SpawnCount = 0
-SpawnMaxNearbyEntities = 0
-SpawnMinDelay = 0
-SpawnMaxDelay = 0
-SpawnRequiredPlayerRange = 0
-treasure_SpawnCount = 0
-treasure_SpawnMaxNearbyEntities = 0
-treasure_SpawnMinDelay = 0
-treasure_SpawnMaxDelay = 0
-treasure_SpawnRequiredPlayerRange = 0
+SpawnCount = 4
+SpawnMaxNearbyEntities = 6
+SpawnMinDelay = 200
+SpawnMaxDelay = 800
+SpawnRequiredPlayerRange = 16
+treasure_SpawnCount = 4
+treasure_SpawnMaxNearbyEntities = 6
+treasure_SpawnMinDelay = 200
+treasure_SpawnMaxDelay = 800
+treasure_SpawnRequiredPlayerRange = 16
 chest_traps = '3'
 sand_traps = '40'
 skeleton_balconies = '25'
@@ -53,10 +53,13 @@ secret_rooms = '75'
 silverfish = '0'
 maps = '0'
 mapstore = ''
+mapcolor = 11141120      # Hex: AA0000
+paintingcolor = 14079638 # Hex: D6D696
 portal_exit = Vec(0, 0, 0)
 dungeon_name = None
 river_biomes = [7, 11]
 ocean_biomes = [0, 10, 24]
+use_incomplete_chunks = 'False'
 
 master_halls = []
 master_hall_traps = []
@@ -85,6 +88,7 @@ file_dyes = 'dye_colors.txt'
 file_potions = 'potions.txt'
 file_magic_items = 'magic_items.txt'
 file_fortunes = 'fortunes.txt'
+file_recipes = 'recipes.txt'
 dir_paintings = 'paintings'
 dir_books = 'books'
 dir_shops = 'shops'
@@ -122,6 +126,18 @@ def getPath(section, var, default):
     return os.path.join('configs', os.path.normpath(temp))
 
 
+def getHexColor(section, var, default):
+    global parser
+    try:
+        temp = parser.get(section, var)
+        temp = int(temp, 16)
+    except:
+        return default
+    if (temp < 0 or temp > 16777215):
+        return default
+    return temp
+
+
 def str2bool(string):
     if (
         string.lower() is False or
@@ -157,8 +173,8 @@ def LoadSpawners(path='spawners'):
         else:
             spawners_path = path
         for file in os.listdir(spawners_path):
-            if file.endswith(".nbt"):
-                custom_spawners[file[:-4].lower()] = os.path.join(
+            if file.endswith(".yaml"):
+                custom_spawners[file[:-5].lower()] = os.path.join(
                     spawners_path,
                     file
                 )
@@ -177,16 +193,18 @@ def Load(filename='default.cfg'):
         maximize_distance, hall_piston_traps, resetting_hall_pistons, \
         structure_values, default_entrances, master_entrances, \
         master_treasure, secret_rooms, secret_door, silverfish, bury, \
-        master_projectile_traps, maps, mapstore, max_mob_tier, custom_spawners, \
+        master_projectile_traps, maps, mapstore, mapcolor, paintingcolor, \
+        max_mob_tier, custom_spawners, \
         master_stairwells, hidden_spawners, master_srooms, SpawnCount, \
         SpawnMaxNearbyEntities, SpawnMinDelay, SpawnMaxDelay, \
         SpawnRequiredPlayerRange, chest_traps, master_chest_traps, \
         treasure_SpawnCount, treasure_SpawnMaxNearbyEntities, \
         treasure_SpawnMinDelay, treasure_SpawnMaxDelay, \
         treasure_SpawnRequiredPlayerRange, file_extra_items, file_dyes, \
-        file_potions, file_magic_items, file_fortunes, dir_paintings, \
+        file_potions, file_magic_items, file_fortunes, file_recipes, \
+        dir_paintings, \
         dir_books, dir_shops, dir_extra_spawners, dir_extra_items, \
-        river_biomes, ocean_biomes, master_hall_traps, \
+        river_biomes, ocean_biomes, use_incomplete_chunks, master_hall_traps, \
         master_landmarks, default_landmarks, master_landmark_mobs, \
         th_locked, th_bonus, th_intermediate, th_spawners
 
@@ -215,6 +233,7 @@ def Load(filename='default.cfg'):
                                'file_magic_items',
                                file_magic_items)
     file_fortunes = getPath('locations', 'file_fortunes', file_fortunes)
+    file_recipes = getPath('locations', 'file_recipes', file_recipes)
     dir_paintings = getPath('locations', 'dir_paintings', dir_paintings)
     dir_books = getPath('locations', 'dir_books', dir_books)
     dir_shops = getPath('locations', 'dir_shops', dir_shops)
@@ -227,6 +246,8 @@ def Load(filename='default.cfg'):
     # good now.
     if isFile(file_fortunes) is False:
         print "Warning: fortune file '" + file_fortunes + "' not found."
+    if isFile(file_recipes) is False:
+        print "Warning: recipes file '" + file_recipes + "' not found."
     if isDir(dir_paintings) is False:
         print "Warning: paintings directory '" + dir_paintings + "' not found."
     if isDir(dir_books) is False:
@@ -448,6 +469,8 @@ def Load(filename='default.cfg'):
     silverfish = int(get('dungeon', 'silverfish', silverfish))
     maps = int(get('dungeon', 'maps', maps))
     mapstore = get('dungeon', 'mapstore', mapstore)
+    mapcolor = getHexColor('dungeon', 'mapcolor', mapcolor)
+    paintingcolor = getHexColor('dungeon', 'paintingcolor', paintingcolor)
 
     th_locked = str2bool(get('treasure hunt', 'locked', th_locked))
     th_bonus = int(get('treasure hunt', 'bonus', th_bonus))
@@ -513,3 +536,6 @@ def Load(filename='default.cfg'):
     except:
         print 'WARNING: Unable to parse ocean_biomes from config.'\
               ' Using default.'
+
+    use_incomplete_chunks = str2bool(get('dungeon', 'use_incomplete_chunks',
+                                     use_incomplete_chunks))

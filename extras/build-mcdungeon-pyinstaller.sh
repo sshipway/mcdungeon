@@ -5,10 +5,10 @@
 #
 # Tested configurations:
 #
-# Pyinstaller 3.1.1 stable
+# Pyinstaller 3.2.1 stable
 #
-# Windows 10 / Python 2.7.11 / numpy-1.10.4 (pip)
-# OS X 10.11.3 (El Capitan) / Python 2.7.11 (pyenv) / numpy-1.10.4 (pip) *
+# Windows 10 (64 bit) / Python 2.7.13 / numpy-1.12.0 (pip) / pipywin32 219 (pip)
+# OS X 10.11.3 (El Capitan) / Python 2.7.13 (pyenv) / numpy-1.13.0 (pip) *
 #
 # * See this note for numpy and pyenv 20150310 on OS X:
 #
@@ -26,7 +26,7 @@
 # desired tag. Passing no options will build the current master HEAD rev,
 # which should be the current release version.
 
-FILES="README.md LICENSE.txt CHANGELOG.txt fortunes.txt materials.cfg items.txt magic_items.txt dye_colors.txt potions.txt configs example_configs books shops spawners items paintings names overviewer_icons d"
+FILES="README.md LICENSE.txt CHANGELOG.txt fortunes.txt materials.cfg items.txt magic_items.txt dye_colors.txt potions.txt recipes.txt configs example_configs books shops spawners items paintings names overviewer_icons d"
 
 function error {
 	echo -e "\nFATAL: $1"
@@ -119,7 +119,7 @@ a.datas += [ \
 ' mcdungeon/mcdungeon.spec
 
 # Build it!
-python pyinstaller.py mcdungeon/mcdungeon.spec || error 'Pyinstaller build failed.' $?
+python pyinstaller.py --clean mcdungeon/mcdungeon.spec || error 'Pyinstaller build failed.' $?
 
 # Copy over support files
 mkdir -p $NAME/bin

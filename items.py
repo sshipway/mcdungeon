@@ -3,7 +3,7 @@ import sys
 import os
 
 import materials
-from pymclevel import nbt
+from nbtyamlbridge import tagsfromfile
 
 _items = {}
 
@@ -175,6 +175,7 @@ def LoadPotions(filename='potions.txt'):
     # Try to load items from sys.path[0] if we can,
     # otherwise default to the cd.
     temp = os.path.join(sys.path[0], filename)
+    hexdigits = "abcdefABCDEF0123456789"
     try:
         fh = open(temp)
         fh.close
@@ -206,10 +207,15 @@ def LoadPotions(filename='potions.txt'):
             resetprefix = u"\u00A7r".encode('utf8')
             customname = name
             name = (name.lower())
+            # Look for optional hex color and store in flagparam
+            flagparam = ''
+            if len(s[-1]) == 6 and all(c in hexdigits for c in s[-1]):
+                flagparam = int(s.pop(), 16)
             # Look for optional flag
             flag = ''
             if s[-1] in ('HIDE_EFFECTS','HIDE_PARTICLES','HIDE_ALL'):
                 flag = s.pop()
+
             # Join the rest back in to the effect list
             p_effect = ','.join(s)
             
@@ -217,23 +223,28 @@ def LoadPotions(filename='potions.txt'):
             id = _items['water bottle'].id
             _items[name] = ItemInfo(name, id, data=0, maxstack=1,
                                     p_effect=p_effect, flag=flag,
+                                    flagparam = flagparam,
                                     customname=resetprefix+customname)
                                     
             # Create the arrow version of the potion
             id = _items['tipped arrow'].id
-            _items[name+' arrow'] = ItemInfo(name+' arrow', id, data=0, maxstack=1,
+            _items[name+' arrow'] = ItemInfo(name+' arrow', id, data=0, maxstack=64,
                                     p_effect=p_effect, flag=flag,
+                                    flagparam = flagparam,
                                     customname=resetprefix+customname+' Arrow')
 
             # Create the splash version of the potion
             id = _items['splash water bottle'].id
             _items['splash '+name] = ItemInfo('splash '+name, id, data=0, maxstack=1,
                                     p_effect=p_effect, flag=flag,
+                                    flagparam = flagparam,
                                     customname=resetprefix+'Splash '+customname)
+
             # Create the lingering version of the potion
             id = _items['lingering water bottle'].id
             _items['lingering '+name] = ItemInfo('lingering '+name, id, data=0, maxstack=1,
                                     p_effect=p_effect, flag=flag,
+                                    flagparam = flagparam,
                                     customname=resetprefix+'Lingering '+customname)
             items += 1
         except Exception as e:
@@ -293,7 +304,7 @@ def LoadDyedArmour(filename='dye_colors.txt'):
     print 'Loaded', items, 'dye colors.'
 
 
-def LoadNBTFiles(dirname='items'):
+def LoadYAMLFiles(dirname='items'):
     # Test which path to use. If the path can't be found
     # just don't load any items.
     if os.path.isdir(os.path.join(sys.path[0], dirname)):
@@ -301,21 +312,21 @@ def LoadNBTFiles(dirname='items'):
     elif os.path.isdir(dirname):
         item_path = dirname
     else:
-        print 'Could not find the NBT items folder!'
+        print 'Could not find the items folder!'
         return
-    # Make a list of all the NBT files in the items directory
+    # Make a list of all the .yaml files in the items directory
     itemlist = []
     for file in os.listdir(item_path):
-        if (file.endswith(".nbt")):
+        if (file.endswith(".yaml")):
             itemlist.append(file)
     items_count = 0
     for item in itemlist:
-        # SomeItem.nbt would be referenced in loot as file_some_item
-        name = 'file_' + item[:-4].lower()
+        # SomeItem.yaml would be referenced in loot as file_some_item
+        name = 'file_' + item[:-5].lower()
         full_path = os.path.join(item_path, item)
-        # Load the nbt file and do some basic validation
+        # Load the file and do some basic validation
         try:
-            item_nbt = nbt.load(full_path)
+            item_nbt = tagsfromfile(full_path)
             item_nbt['id']  # Throws an error if not set
         except:
             print item + " is an invalid item! Skipping."
@@ -328,7 +339,7 @@ def LoadNBTFiles(dirname='items'):
         _items[name] = ItemInfo(name, '', maxstack=stack, file=full_path)
         # print _items[name]
         items_count += 1
-    print 'Loaded', items_count, 'items from NBT files.'
+    print 'Loaded', items_count, 'items from yaml files.'
 
 
 def byName(name):
@@ -339,4 +350,4 @@ def byName(name):
         return None
 
 LoadItems()
-LoadNBTFiles()
+LoadYAMLFiles()

@@ -22,8 +22,7 @@ import inventory
 from utils import *
 from disjoint_set import DisjointSet
 from pymclevel import nbt
-from overviewer_core import cache
-from overviewer_core import world as ov_world
+from nbtyamlbridge import tagsfromfile
 
 
 class Block(object):
@@ -76,16 +75,12 @@ class Dungeon (object):
     def __init__(self,
                  args,
                  world,
-                 oworld,
                  chunk_cache,
                  dungeon_cache,
                  good_chunks,
                  mapstore):
-        self.caches = []
-        self.caches.append(cache.LRUCache(size=100))
 
         self.world = world
-        self.oworld = oworld
         self.chunk_cache = chunk_cache
         self.dungeon_cache = dungeon_cache
         self.good_chunks = good_chunks
@@ -342,8 +337,7 @@ class Dungeon (object):
                 self.position.x,
                 self.position.z,
             )
-            #self.dungeon_cache[key] = self.tile_ents[Vec(0,0,0)]
-            self.dungeon_cache[key] = 1
+            self.dungeon_cache[key] = encodeDungeonInfo(self, version)
 
             # Generate maps
             if (self.args.write and cfg.maps > 0):
@@ -637,10 +631,9 @@ class Dungeon (object):
 
         # Calaculate the biome
         biomes = {}
-        rset = self.oworld.get_regionset(None)
         for chunk in d_chunks:
-            cdata = rset.get_chunk(chunk[0], chunk[1])
-            key = numpy.argmax(numpy.bincount((cdata['Biomes'].flatten())))
+            cdata = self.world.getChunk(chunk[0], chunk[1])
+            key = numpy.argmax(numpy.bincount((cdata.Biomes.flatten())))
             if key in biomes:
                 biomes[key] += 1
             else:
@@ -767,8 +760,6 @@ class Dungeon (object):
 
     def processBiomes(self):
         '''Add vines and snow according to biomes.'''
-        rset = self.oworld.get_regionset(None)
-        r = ov_world.CachedRegionSet(rset, self.caches)
         wp = Vec(self.position.x, 0, self.position.z)
         count = self.xsize * 16 * self.zsize * 16
         self.pm.init(count, label='Processing biomes:')
@@ -778,8 +769,8 @@ class Dungeon (object):
             count -= 1
             cx = (p.x + wp.x) // 16
             cz = (p.z + wp.z) // 16
-            chunk = r.get_chunk(cx, cz)
-            biome = chunk['Biomes'][p.x % 16][p.z % 16]
+            chunk = self.world.getChunk(cx, cz)
+            biome = chunk.Biomes[p.x % 16][p.z % 16]
             # Vines
             if biome in (6,     # Swampland
                          134,   # Swampland M
@@ -829,32 +820,61 @@ class Dungeon (object):
 
         self.pm.set_complete()
 
-    def getspawnertags(self, entity):
-        # See if we have a custom spawner match
-        if entity.lower() in cfg.custom_spawners.keys():
-            filepath = cfg.custom_spawners[entity.lower()]
-            root_tag = nbt.load(filename=filepath)
-            return root_tag
+    def getspawnertags(self, entity, tier, loc):
+        entity = entity.lower()
+
+        # Use spawner tags from config
+        if tier == cfg.max_mob_tier:
+            SpawnCount = cfg.treasure_SpawnCount
+            SpawnMaxNearbyEntities = cfg.treasure_SpawnMaxNearbyEntities
+            SpawnMinDelay = cfg.treasure_SpawnMinDelay
+            SpawnMaxDelay = cfg.treasure_SpawnMaxDelay
+            SpawnRequiredPlayerRange = cfg.treasure_SpawnRequiredPlayerRange
         else:
-            root_tag = nbt.TAG_Compound()
-            root_tag['SpawnData'] = nbt.TAG_Compound()
+            SpawnCount = cfg.SpawnCount
+            SpawnMaxNearbyEntities = cfg.SpawnMaxNearbyEntities
+            SpawnMinDelay = cfg.SpawnMinDelay
+            SpawnMaxDelay = cfg.SpawnMaxDelay
+            SpawnRequiredPlayerRange = cfg.SpawnRequiredPlayerRange
 
-        SpawnData = root_tag['SpawnData']
+        # See if we have a custom spawner file match and return it if we do.
+        if entity.startswith('file_'):
+            entity = entity[5:] # Strip 'file_'
+            if entity in cfg.custom_spawners.keys():
+                filepath = cfg.custom_spawners[entity]
+                root_tag = get_tile_entity_tags(
+                    eid='mob_spawner',
+                    Pos=loc,
+                    SpawnCount=SpawnCount,
+                    MinSpawnDelay=SpawnMinDelay,
+                    MaxSpawnDelay=SpawnMaxDelay,
+                    MaxNearbyEntities=SpawnMaxNearbyEntities,
+                    RequiredPlayerRange=SpawnRequiredPlayerRange,
+                )
+                root_tag = tagsfromfile(filename=filepath, defaults=root_tag)
+                return root_tag
+            else: # Spawner not in our list!
+                entity = 'bat'
 
-        # Cases where the entity id doesn't match the config
-        entity = entity.capitalize()
-        if (entity == 'Pigzombie'):
-            SpawnData['id'] = nbt.TAG_String('PigZombie')
-        elif (entity == 'Cavespider'):
-            SpawnData['id'] = nbt.TAG_String('CaveSpider')
-        elif (entity == 'Lavaslime'):
-            SpawnData['id'] = nbt.TAG_String('LavaSlime')
-        elif (entity == 'Witherboss'):
-            SpawnData['id'] = nbt.TAG_String('WitherBoss')
-        # For everything else the input is the SpawnData id
-        else:
-            SpawnData['id'] = nbt.TAG_String(entity)
+        # To bypass a technical limitation, replace '!' with ':'
+        if '!' in entity:
+            entity = entity.replace('!',':',1)
+        else: # Otherwise, we don't have a namespace prefix, so add the default
+            entity = "minecraft:"+entity
 
+        spawndata_tag = nbt.TAG_Compound()
+        spawndata_tag['id'] = nbt.TAG_String(entity)
+
+        root_tag = get_tile_entity_tags(
+            eid='mob_spawner',
+            Pos=loc,
+            SpawnCount=SpawnCount,
+            MinSpawnDelay=SpawnMinDelay,
+            MaxSpawnDelay=SpawnMaxDelay,
+            MaxNearbyEntities=SpawnMaxNearbyEntities,
+            RequiredPlayerRange=SpawnRequiredPlayerRange,
+            SpawnData=spawndata_tag
+        )
         return root_tag
 
     def addsign(self, loc, text1, text2, text3, text4):
@@ -864,14 +884,10 @@ class Dungeon (object):
         root_tag['y'] = nbt.TAG_Int(loc.y)
         root_tag['z'] = nbt.TAG_Int(loc.z)
 
-        def JSONformat(text):
-            if ( text.startswith('{') == True ):
-                return text
-            return '{"text":"'+text.replace('"','\"')+'"}'
-        root_tag['Text1'] = nbt.TAG_String(JSONformat(text1))
-        root_tag['Text2'] = nbt.TAG_String(JSONformat(text2))
-        root_tag['Text3'] = nbt.TAG_String(JSONformat(text3))
-        root_tag['Text4'] = nbt.TAG_String(JSONformat(text4))
+        root_tag['Text1'] = nbt.TAG_String(encodeJSONtext(text1))
+        root_tag['Text2'] = nbt.TAG_String(encodeJSONtext(text2))
+        root_tag['Text3'] = nbt.TAG_String(encodeJSONtext(text3))
+        root_tag['Text4'] = nbt.TAG_String(encodeJSONtext(text4))
         self.tile_ents[loc] = root_tag
 
     def addspawner(self, loc, entity='', tier=-1):
@@ -889,70 +905,19 @@ class Dungeon (object):
                     tier = cfg.max_mob_tier - 1
             entity = weighted_choice(cfg.master_mobs[tier])
             # print 'Spawner: lev=%d, tier=%d, ent=%s' % (level, tier, entity)
-        root_tag = self.getspawnertags(entity)
-        # Do generic spawner setup
-        root_tag['id'] = nbt.TAG_String('MobSpawner')
-        root_tag['x'] = nbt.TAG_Int(loc.x)
-        root_tag['y'] = nbt.TAG_Int(loc.y)
-        root_tag['z'] = nbt.TAG_Int(loc.z)
-        try:
-            root_tag['Delay']
-        except:
-            root_tag['Delay'] = nbt.TAG_Short(0)
-        # Calculate spawner tags from config
-        if tier == cfg.max_mob_tier:
-            SpawnCount = cfg.treasure_SpawnCount
-            SpawnMaxNearbyEntities = cfg.treasure_SpawnMaxNearbyEntities
-            SpawnMinDelay = cfg.treasure_SpawnMinDelay
-            SpawnMaxDelay = cfg.treasure_SpawnMaxDelay
-            SpawnRequiredPlayerRange = cfg.treasure_SpawnRequiredPlayerRange
-        else:
-            SpawnCount = cfg.SpawnCount
-            SpawnMaxNearbyEntities = cfg.SpawnMaxNearbyEntities
-            SpawnMinDelay = cfg.SpawnMinDelay
-            SpawnMaxDelay = cfg.SpawnMaxDelay
-            SpawnRequiredPlayerRange = cfg.SpawnRequiredPlayerRange
-        # But don't overwrite tags from NBT files
-        if (SpawnCount != 0):
-            try:
-                root_tag['SpawnCount']
-            except:
-                root_tag['SpawnCount'] = nbt.TAG_Short(SpawnCount)
-        if (SpawnMaxNearbyEntities != 0):
-            try:
-                root_tag['MaxNearbyEntities']
-            except:
-                root_tag['MaxNearbyEntities'] = nbt.TAG_Short(
-                    SpawnMaxNearbyEntities)
-        if (SpawnMinDelay != 0):
-            try:
-                root_tag['MinSpawnDelay']
-            except:
-                root_tag['MinSpawnDelay'] = nbt.TAG_Short(SpawnMinDelay)
-        if (SpawnMaxDelay != 0):
-            try:
-                root_tag['MaxSpawnDelay']
-            except:
-                root_tag['MaxSpawnDelay'] = nbt.TAG_Short(SpawnMaxDelay)
-        if (SpawnRequiredPlayerRange != 0):
-            try:
-                root_tag['RequiredPlayerRange']
-            except:
-                root_tag['RequiredPlayerRange'] = nbt.TAG_Short(
-                    SpawnRequiredPlayerRange)
-        # Finally give the tag to the entity
+        root_tag = self.getspawnertags(entity, tier, loc)
         self.tile_ents[loc] = root_tag
 
     def addnoteblock(self, loc, clicks=0):
         root_tag = nbt.TAG_Compound()
-        root_tag['id'] = nbt.TAG_String('Music')
+        root_tag['id'] = nbt.TAG_String('noteblock')
         root_tag['x'] = nbt.TAG_Int(loc.x)
         root_tag['y'] = nbt.TAG_Int(loc.y)
         root_tag['z'] = nbt.TAG_Int(loc.z)
         root_tag['note'] = nbt.TAG_Byte(clicks)
         self.tile_ents[loc] = root_tag
 
-    def addchest(self, loc, tier=-1, loot=[], name='', lock=None):
+    def addchest(self, loc, tier=-1, loot=[], name=None, lock=None):
         level = loc.y / self.room_height
         if (tier < 0):
             if (self.levels > 1):
@@ -967,15 +932,13 @@ class Dungeon (object):
             tier = loottable._maxtier
         if self.args.debug:
             print 'Adding chest: level',level+1,'tier',tier
-        root_tag = nbt.TAG_Compound()
-        root_tag['id'] = nbt.TAG_String('Chest')
-        root_tag['x'] = nbt.TAG_Int(loc.x)
-        root_tag['y'] = nbt.TAG_Int(loc.y)
-        root_tag['z'] = nbt.TAG_Int(loc.z)
-        if (name != ''):
-            root_tag['CustomName'] = nbt.TAG_String(name)
-        if (lock is not None and lock != ''):
-            root_tag['Lock'] = nbt.TAG_String(lock)
+
+        root_tag = get_tile_entity_tags(
+            eid='chest',
+            CustomName=name,
+            Lock=lock,
+            Pos=loc
+        )
         inv_tag = nbt.TAG_List()
         root_tag['Items'] = inv_tag
         if loot is None:
@@ -990,8 +953,10 @@ class Dungeon (object):
     def addchestitem_tag(self, loc, item_tag):
         '''Add an item to an existing chest'''
         # No chest here!
-        if (loc not in self.tile_ents or
-                self.tile_ents[loc]['id'].value != 'Chest'):
+        if (
+            loc not in self.tile_ents or
+            self.tile_ents[loc]['id'].value != 'minecraft:chest'
+        ):
             return False
         root_tag = self.tile_ents[loc]
         slot = len(root_tag['Items'])
@@ -1019,7 +984,7 @@ class Dungeon (object):
             print 'Count:', count
             sys.exit()
         root_tag = nbt.TAG_Compound()
-        root_tag['id'] = nbt.TAG_String('Trap')
+        root_tag['id'] = nbt.TAG_String('dispenser')
         root_tag['x'] = nbt.TAG_Int(loc.x)
         root_tag['y'] = nbt.TAG_Int(loc.y)
         root_tag['z'] = nbt.TAG_Int(loc.z)
@@ -1044,6 +1009,15 @@ class Dungeon (object):
 
     def adddungeonbanner(self, loc):
         root_tag = get_tile_entity_tags(eid="Banner",Pos=loc,**self.flagdesign)
+        self.addtileentity(root_tag)
+
+    def addendgateway(self, loc, exitloc):
+        root_tag = get_tile_entity_tags(eid="end_gateway",Pos=loc,ExitPos=exitloc,ExactTeleport=1)
+        self.addtileentity(root_tag)
+
+    def addflowerpot(self, loc, itemname='air'):
+        item = loottable.items.byName(itemname.lower())
+        root_tag = get_tile_entity_tags(eid='flower_pot',Pos=loc,Item=item.id, Data=item.data)
         self.addtileentity(root_tag)
 
     def addentity(self, root_tag):
@@ -2214,7 +2188,10 @@ class Dungeon (object):
                     chunk = world.getChunk(x, z)
                     # Repopulate any above ground chests
                     for tileEntity in chunk.TileEntities:
-                        if (tileEntity["id"].value == "Chest"):
+                        if (
+                            tileEntity["id"].value == "Chest" or
+                            tileEntity["id"].value == "minecraft:chest"
+                        ):
                             p = Vec(0, 0, 0)
                             for name, tag in tileEntity.items():
                                 if (name == 'x'):
@@ -2225,10 +2202,6 @@ class Dungeon (object):
                                     p.z = int(tag.value) - self.position.z
                             if p.y < 0:
                                 self.addchest(p, 0)
-                    # Empty the tile entities from this chunk
-                    chunk.TileEntities.value[:] = []
-                    # Empty the entities from this chunk
-                    chunk.Entities.value[:] = []
                     # Fake some ores. First fill with Stone (id=1) and then pick
                     # some random ones based on known ore distributions to fill
                     # in ores.
@@ -2342,6 +2315,23 @@ class Dungeon (object):
                     mat != materials._sandbar):
                 del(self.good_chunks[(chunk_x, chunk_z)])
         pm.set_complete()
+
+        # Reset entities in chunks, and set a minimum DV
+        print 'Upgrading chunks...'
+        for chunk in changed_chunks:
+            # Empty the tile entities from this chunk
+            chunk.TileEntities.value[:] = []
+            # Empty the entities from this chunk
+            chunk.Entities.value[:] = []
+            if 'DataVersion' not in chunk.root_tag:
+                chunk.root_tag['DataVersion'] = nbt.TAG_Int(dv_version)
+                if self.args.debug:
+                    print 'Added DavaVersion tag to', chunk.chunkPosition
+            if chunk.root_tag['DataVersion'].value < dv_version:
+                chunk.root_tag['DataVersion'].value = dv_version
+                if self.args.debug:
+                    print 'Upgraded', chunk.chunkPosition, 'to', dv_version
+
         # Copy over tile entities
         print 'Creating tile entities...'
         num = len(self.tile_ents)
@@ -2372,8 +2362,11 @@ class Dungeon (object):
             ent['Pos'][0].value = x
             ent['Pos'][1].value = y
             ent['Pos'][2].value = z
-            # Paintings and ItemFrames need special handling.
-            if ent['id'].value in ('ItemFrame', 'Painting'):
+            # Paintings and Item Frames need special handling.
+            if ent['id'].value in (
+                'minecraft:item_frame',
+                'minecraft:painting'
+            ):
                 ent['TileX'].value += int(self.position.x)
                 ent['TileY'].value = int(self.position.y) - ent['TileY'].value
                 ent['TileZ'].value += int(self.position.z)

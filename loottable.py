@@ -18,6 +18,7 @@ AQUA_AFFINITY = 6
 THORNS = 7
 DEPTH_STRIDER = 8
 FROST_WALKER = 9
+CURSE_OF_BINDING = 10
 
 # Weapon enchantments
 SHARPNESS = 16
@@ -26,6 +27,7 @@ BANE_OF_ARTHROPODS = 18
 KNOCKBACK = 19
 FIRE_ASPECT = 20
 LOOTING = 21
+SWEEPING_EDGE = 22
 
 # Tool enchantments
 EFFICIENCY = 32
@@ -45,6 +47,7 @@ LURE = 62
 
 # Treasure Enchantments
 MENDING = 70
+CURSE_OF_VANISHING = 71
 
 # Enchantment names
 _ench_name = {
@@ -63,6 +66,7 @@ _ench_name = {
     KNOCKBACK: 'Knockback',
     FIRE_ASPECT: 'Fire Aspect',
     LOOTING: 'Looting',
+    SWEEPING_EDGE: 'Sweeping Edge',
     EFFICIENCY: 'Efficiency',
     SILK_TOUCH: 'Silk Touch',
     UNBREAKING: 'Unbreaking',
@@ -74,7 +78,9 @@ _ench_name = {
     LUCK_OF_THE_SEA: 'Luck of the Sea',
     LURE: 'Lure',
     FROST_WALKER: 'Frost Walker',
-    MENDING: 'Mending'
+    MENDING: 'Mending',
+    CURSE_OF_BINDING: 'Curse of Binding',
+    CURSE_OF_VANISHING: 'Curse of Vanishing'
 }
 
 # Level names
@@ -103,6 +109,7 @@ _ench_prob = {
     KNOCKBACK: 5,
     FIRE_ASPECT: 2,
     LOOTING: 2,
+    SWEEPING_EDGE: 2,
     EFFICIENCY: 10,
     SILK_TOUCH: 1,
     UNBREAKING: 5,
@@ -114,7 +121,9 @@ _ench_prob = {
     LUCK_OF_THE_SEA: 5,
     LURE: 5,
     FROST_WALKER: 2,
-    MENDING: 2
+    MENDING: 2,
+    CURSE_OF_BINDING: 1,
+    CURSE_OF_VANISHING: 1
 }
 
 # Enchantment level table
@@ -135,6 +144,7 @@ _ench_level = {
     KNOCKBACK: [(5, 55), (25, 75), (0, 0), (0, 0), (0, 0)],
     FIRE_ASPECT: [(10, 60), (30, 80), (0, 0), (0, 0), (0, 0)],
     LOOTING: [(15, 65), (34, 74), (33, 83), (0, 0), (0, 0)],
+    SWEEPING_EDGE: [(5, 20), (14, 29), (23, 38), (0, 0), (0, 0)],
     EFFICIENCY: [(1, 51), (11, 61), (21, 71), (31, 81), (41, 91)],
     SILK_TOUCH: [(15, 65), (0, 0), (0, 0), (0, 0), (0, 0)],
     UNBREAKING: [(5, 55), (13, 63), (21, 71), (0, 0), (0, 0)],
@@ -146,7 +156,9 @@ _ench_level = {
     LUCK_OF_THE_SEA: [(15, 65), (24, 74), (33, 83), (0, 0), (0, 0)],
     LURE: [(15, 65), (24, 74), (33, 83), (0, 0), (0, 0)],
     FROST_WALKER: [(10, 25), (20, 35), (0, 0), (0, 0), (0, 0)],
-    MENDING: [(25, 75), (0, 0), (0, 0), (0, 0), (0, 0)]
+    MENDING: [(25, 75), (0, 0), (0, 0), (0, 0), (0, 0)],
+    CURSE_OF_BINDING: [(25, 50), (0, 0), (0, 0), (0, 0), (0, 0)],
+    CURSE_OF_VANISHING: [(25, 50), (0, 0), (0, 0), (0, 0), (0, 0)]
 }
 
 # Enchantment valid items tables
@@ -168,6 +180,7 @@ _ench_items_table_book = {
     KNOCKBACK: ['book', 'sword'],
     FIRE_ASPECT: ['book', 'sword'],
     LOOTING: ['book', 'sword'],
+    SWEEPING_EDGE: ['book', 'sword'],
     EFFICIENCY: ['book', 'tool', 'axe', 'shears'],
     SILK_TOUCH: ['book', 'tool', 'axe', 'shears'],
     UNBREAKING: ['book', 'helmet', 'chestplate', 'leggings', 'boots',
@@ -183,6 +196,11 @@ _ench_items_table_book = {
     LURE: ['book', 'fishing rod'],
     FROST_WALKER: ['book', 'boots'],
     MENDING: ['book', 'helmet', 'chestplate', 'leggings', 'boots',
+                 'sword', 'tool', 'axe', 'bow', 'hoe', 'fishing rod',
+                 'shears', 'flint and steel', 'carrot on a stick',
+                 'elytra'],
+    CURSE_OF_BINDING: ['book', 'helmet', 'chestplate', 'leggings', 'boots'],
+    CURSE_OF_VANISHING: ['book', 'helmet', 'chestplate', 'leggings', 'boots',
                  'sword', 'tool', 'axe', 'bow', 'hoe', 'fishing rod',
                  'shears', 'flint and steel', 'carrot on a stick',
                  'elytra']
@@ -206,6 +224,7 @@ _ench_items_table = {
     KNOCKBACK: ['book', 'sword'],
     FIRE_ASPECT: ['book', 'sword'],
     LOOTING: ['book', 'sword'],
+    SWEEPING_EDGE: ['book', 'sword'],
     EFFICIENCY: ['book', 'tool', 'axe'],
     SILK_TOUCH: ['book', 'tool', 'axe'],
     UNBREAKING: ['book', 'tool', 'axe'],
@@ -217,11 +236,14 @@ _ench_items_table = {
     LUCK_OF_THE_SEA: ['book', 'fishing rod'],
     LURE: ['book', 'fishing rod'],
     FROST_WALKER: ['book'],
-    MENDING: ['book']
+    MENDING: ['book'],
+    CURSE_OF_BINDING: ['book'],
+    CURSE_OF_VANISHING: ['book']
 }
 
 # Extended: As normal, but all weapon enchants can appear on axes,
-#           pickaxes and shovels
+#           pickaxes and shovels. Sweeping Edge not included as only swords
+#           can do Sweep Attacks.
 _ench_items_extended = _ench_items_table_book.copy()
 for i in (SHARPNESS, SMITE, BANE_OF_ARTHROPODS, KNOCKBACK, FIRE_ASPECT, LOOTING):
     _ench_items_extended[i] = ['book', 'sword', 'axe', 'tool']
